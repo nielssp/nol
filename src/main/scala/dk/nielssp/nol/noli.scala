@@ -74,7 +74,7 @@ object noli {
         val tokens = lex(line)
         val ast = parse.repl(tokens)
         ast match {
-          case p: Program => scope = interpreter(p, scope)
+          case p: Program => scope = interpreter(p, scope).symbols
           case e: Expr =>
             val value = interpreter(e, scope)
             console.println(s"$value")

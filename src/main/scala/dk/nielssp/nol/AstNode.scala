@@ -4,11 +4,10 @@ import scala.util.parsing.input.Positional
 
 abstract class AstNode extends Positional
 
-case class Program(statements: Seq[Statement]) extends AstNode
+case class Program(imports: Seq[Import], definitions: Seq[Definition]) extends AstNode
 
-sealed abstract class Statement extends AstNode
-case class Definition(name: String, value: Expr) extends Statement
-case class Import(name: String) extends Statement
+case class Definition(name: String, value: Expr) extends AstNode
+case class Import(name: String) extends AstNode
 
 sealed abstract class Expr extends AstNode
 case class LetExpr(assigns: Seq[Definition], body: Expr) extends Expr

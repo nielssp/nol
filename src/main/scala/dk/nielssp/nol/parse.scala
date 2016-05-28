@@ -18,15 +18,15 @@ object parse extends Parsers {
     def rest = TokenReader(tokens.tail)
   }
 
-  def program: Parser[Program] = phrase(rep(statement)) ^^ Program
+  def program: Parser[Program] = phrase(rep(importStmt) ~ rep(definition)) ^^ {
+    case imports ~ definitions => Program(imports, definitions)
+  }
 
-  def statement: Parser[Statement] = positioned(definition | importStmt)
+  def definition: Parser[Definition] = positioned(keyword("let") ~> assign)
 
-  def definition: Parser[Definition] = keyword("let") ~> assign
-
-  def importStmt: Parser[Import] = keyword("import") ~> acceptMatch("a string", {
+  def importStmt: Parser[Import] = positioned(keyword("import") ~> acceptMatch("a string", {
     case StringToken(name) => Import(name)
-  })
+  }))
 
   def replExpr: Parser[Expr] = phrase(expr)
 
@@ -106,7 +106,7 @@ object parse extends Parsers {
     }
   }
 
-  def apply(tokens: Seq[Token]): AstNode = program(TokenReader(tokens)) match {
+  def apply(tokens: Seq[Token]): Program = program(TokenReader(tokens)) match {
     case Success(result, _) => result
     case NoSuccess(msg, next) => throw new SyntaxError(s"unexpected ${next.first}, $msg", next.pos)
   }

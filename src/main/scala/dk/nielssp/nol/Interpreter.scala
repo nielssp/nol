@@ -2,42 +2,41 @@ package dk.nielssp.nol
 
 import java.io.{File, IOException}
 
+import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
 class Interpreter {
   type SymbolTable = Map[String, Value]
 
-  def apply(program: Program, scope: SymbolTable): SymbolTable = {
+  case class Module(symbols: SymbolTable, exports: SymbolTable)
+
+  val modules = mutable.HashMap.empty[String, Module]
+
+  def apply(program: Program, scope: SymbolTable): Module = {
     var newScope: SymbolTable = scope
-    newScope = program.statements.foldLeft(newScope) {
+    newScope = program.imports.foldLeft(newScope) {
+      case (scope, imp@Import(name)) =>
+        scope ++ modules.getOrElseUpdate(name, {
+          val file = new File(name + ".nol")
+          try {
+            apply(parse(lex(Source.fromFile(file).mkString)), scope)
+          } catch {
+            case e: Error =>
+              if (e.file == null)
+                e.file = file
+              throw e
+            case e: IOException =>
+              throw new ImportError(s"module not found: $name", imp.pos)
+          }
+        }).exports
+    }
+    val exports = program.definitions.foldLeft(Map.empty[String, Value]) {
       case (scope, Definition(name, value)) =>
         scope.updated(name, LazyValue(() => apply(value, newScope)))
-      case (scope, statement) => apply(statement, newScope)
     }
-    newScope
-  }
-
-  def apply(statement: Statement, scope: SymbolTable): SymbolTable = statement match {
-    case Definition(name, value) =>
-      var newScope: SymbolTable = scope
-      newScope = scope.updated(name, LazyValue(() => apply(value, newScope)))
-      newScope
-    case Import(name) =>
-      val file = new File(name + ".nol")
-      try {
-        parse(lex(Source.fromFile(file).mkString)) match {
-          case p: Program => apply(p, scope)
-          case e: Expr => println(e); scope
-        }
-      } catch {
-        case e: Error =>
-          if (e.file == null)
-            e.file = file
-          throw e
-        case e: IOException =>
-          throw new ImportError(s"module not found: $name", statement.pos)
-      }
+    newScope ++= exports
+    Module(newScope, exports)
   }
 
   def apply(expr: Expr, scope: SymbolTable): Value = (expr match {
