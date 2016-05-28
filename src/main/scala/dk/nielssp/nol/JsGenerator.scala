@@ -4,7 +4,6 @@ import java.io.{File, IOException}
 
 import scala.collection.mutable
 import scala.io.Source
-import scala.util.parsing.input.NoPosition
 
 class JsGenerator {
   type SymbolTable = Map[String, PartialFunction[Inlinable, String]]
@@ -80,17 +79,11 @@ class JsGenerator {
 
   def apply(expr: Expr, scope: SymbolTable): String = expr match {
     case LetExpr(assigns, body) =>
-      val names = assigns.map(_.name)
-      val signature = "(" + names.map(encode).mkString(",") + ")"
-      val newScope = scope ++ names.map(_ -> none)
+      val newScope = scope ++ assigns.map(_.name -> none)
       val bindings = sortDefinitions(assigns).map {
         case Definition(name, value) =>
           s"var ${encode(name)} = ${apply(value, newScope)};"
       }.mkString
-      val bind = names.map {
-        case name =>
-          s"${encode(name)}.get()"
-      }.mkString(",")
       s"(function(){${bindings}return ${apply(body, newScope)};})()"
     case LambdaExpr(Nil, expr) =>
       apply(expr, scope)
