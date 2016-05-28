@@ -40,6 +40,11 @@ class JsGenerator {
     }.mkString
   }
 
+  def sortDefinitions(definitions: Seq[Definition]): Seq[Definition] =
+    definitions.sortWith {
+      case (Definition(n1, e1), Definition(n2, e2)) => e2.free.contains(n1)
+    }
+
   def apply(program: Program, scope: SymbolTable): (String, Module) = {
     var symbolTable: SymbolTable = scope
     val out = new StringBuilder
@@ -65,7 +70,7 @@ class JsGenerator {
     }
     val exports = program.definitions.map(_.name -> none).toMap
     symbolTable ++= exports
-    program.definitions.foreach {
+    sortDefinitions(program.definitions).foreach {
       case Definition(name, value) =>
         out ++= s"var ${encode(name)} = ${apply(value, symbolTable)};\n"
     }
@@ -78,15 +83,15 @@ class JsGenerator {
       val names = assigns.map(_.name)
       val signature = "(" + names.map(encode).mkString(",") + ")"
       val newScope = scope ++ names.map(_ -> none)
-      val bindings = assigns.map {
+      val bindings = sortDefinitions(assigns).map {
         case Definition(name, value) =>
-          s"var ${encode(name)} = function$signature{return ${apply(value, newScope)};};"
+          s"var ${encode(name)} = ${apply(value, newScope)};"
       }.mkString
       val bind = names.map {
         case name =>
-          s"${encode(name)}$signature"
+          s"${encode(name)}.get()"
       }.mkString(",")
-      s"(function(){${bindings}return (function$signature{return ${apply(body, newScope)};})($bind);})()"
+      s"(function(){${bindings}return ${apply(body, newScope)};})()"
     case LambdaExpr(Nil, expr) =>
       apply(expr, scope)
     case LambdaExpr(name :: names, expr) =>
@@ -94,9 +99,9 @@ class JsGenerator {
         apply(LambdaExpr(names, expr), scope + (name -> none)) +
         ";})"
     case IfExpr(cond, ifTrue, ifFalse) =>
-      "(function(){if(" + apply(cond, scope) +
-        "){return " + apply(ifTrue, scope) +
-        ";}else{return " + apply(ifFalse, scope) +";}})()"
+      "(" + apply(cond, scope) +
+        "?" + apply(ifTrue, scope) +
+        ":" + apply(ifFalse, scope) +")"
     case InfixExpr(op, left, right) =>
       val a = apply(left, scope)
       val b = apply(right, scope)

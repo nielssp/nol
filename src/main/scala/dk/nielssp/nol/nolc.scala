@@ -33,9 +33,7 @@ object nolc {
     ">=" -> {
       case InfixInlinable(a, b) => s"($a>=$b)"
     },
-    "==" -> {
-      case InfixInlinable(a, b) => s"($a===$b)"
-    },
+    "==" -> compiler.none,
     "::" -> compiler.none,
     "neg" -> {
       case PrefixInlinable(a) => s"(-$a)"
@@ -53,6 +51,22 @@ object nolc {
   def main(args: Array[String]): Unit = {
     val console = new ConsoleReader
     var scope: compiler.SymbolTable = stdlib
+    console.println(
+      s"""
+        |function ${compiler.encode("::")}(x){return function(xs){var xs = xs.slice(0); xs.unshift(x); return xs; };}
+        |function ${compiler.encode("==")}(a){return function(b){
+        |  if (a === b) return true;
+        |  if (typeof a !== "object" || typeof b !== "object") return false;
+        |  var ap = Object.getOwnPropertyNames(a);
+        |  var bp = Object.getOwnPropertyNames(b);
+        |  if (ap.length != bp.length) return false;
+        |  for (var i = 0; i < ap.length; i++) {
+        |    var name = ap[i];
+        |    if (a[name] !== b[name]) return false;
+        |  }
+        |  return true;
+        |};}
+      """.stripMargin)
     console.println(compiler.preamble(scope))
     while (true) {
       val line = console.readLine("> ")
