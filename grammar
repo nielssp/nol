@@ -1,27 +1,26 @@
 
 
 Expr ::= LetExpr
-       | LambdaExpr
        | IfExpr
-       | InfixExpr
+       | LambdaExpr
 
 LetExpr ::= "let" Assign {"," Assign} "in" Expr
 
 Assign ::= name "=" Expr
 
-LambdaExpr ::= "\" name {name} "->" Expr
-
 IfExpr ::= "if" Expr "then" Expr "else" Expr
 
-AppExpr ::= Atomic {Atomic}
+LambdaExpr ::= "\" name {name} "->" Expr
+             | InfixExpr
 
-InfixExpr ::= InfixExpr n_infix PrefixExpr
+InfixExpr ::= PrefixExpr n_infix LambdaExpr
             | PrefixExpr
 
 PrefixExpr ::= PrefixExpr Atom
              | Atom
 
-Atom ::= "(" Expr ")"
+Atom ::= "(" n_infix ")"
+       | "(" Expr ")"
        | List
        | name
        | literal

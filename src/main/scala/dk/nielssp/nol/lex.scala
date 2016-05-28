@@ -27,11 +27,16 @@ object lex extends RegexParsers {
     case s => IntToken(s)
   }
 
-  def operator: Parser[Token] = ("""[,\.:!?&^$%@~|+=<>*/-]+""".r | """`[a-zA-Z0-9_!?]+`""".r) ^^ InfixToken
+  val reserved = HashSet("->", ",", "=")
+
+  def operator: Parser[Token] = ("""[,\.:;!?&^$%@~|+=<>*/-]+""".r | """`[a-zA-Z0-9_!?]+`""".r) ^^ {
+    case s if reserved.contains(s) => PunctuationToken(s)
+    case s => InfixToken(s)
+  }
 
   def punctuation: Parser[Token] = """\(|\)|\\|\[|\]""".r ^^ PunctuationToken
 
-  val keywords = HashSet("let", "in", "if", "then", "else")
+  val keywords = HashSet("let", "in", "if", "then", "else", "import")
 
   def name: Parser[Token] = """[a-zA-Z][a-zA-Z0-9_]*""".r ^^ {
     case s if keywords.contains(s) => KeywordToken(s)

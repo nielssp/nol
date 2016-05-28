@@ -1,0 +1,71 @@
+import "util"
+
+let length = \xs -> if xs == [] then 0 else 1 + length $ tail xs
+
+let @ = \xs n -> if n == 0 then head xs else tail xs @ n - 1
+
+let drop = \n xs ->
+  if n == 0
+    then xs
+    else drop (n - 1) $ tail xs
+
+let take = \n xs ->
+  if n == 0
+    then []
+    else head xs :: take (n - 1) $ tail xs
+
+let slice = \i length -> drop i .> take length
+
+let append = \xs ys ->
+  if xs == []
+    then ys
+    else if ys == []
+      then xs
+      else if tail xs == []
+        then head xs :: ys
+        else head xs :: append (tail xs) ys
+
+let ++ = append
+
+let reverse = \xs ->
+  if length xs <= 1
+    then xs
+    else tail xs $> reverse .> (++ [(head xs)])
+
+let reverse2 = \xs ->
+  let rev = \xs acc -> if xs == [] then acc else rev (tail xs) $ head xs :: acc
+  in rev xs []
+
+let map = \f xs -> if xs == [] then [] else f (head xs) :: map f $ tail xs
+
+let filter = \f xs ->
+  if xs == []
+    then []
+    else if f $ head xs
+      then head xs :: filter f $ tail xs
+      else filter f $ tail xs
+
+let `filter` = flip filter
+
+let sort = \f list ->
+  if list == []
+    then []
+    else
+      let x       = head list
+        , xs      = tail list
+        , lesser  = xs `filter` \y -> f y x < 0
+        , greater = xs `filter` \y -> f y x >= 0
+      in
+        sort f lesser ++ [x] ++ sort f greater
+
+let `sort` = flip sort
+
+let foldl = \f z xs -> if xs == [] then z else foldl f (f z $ head xs) $ tail xs
+
+let foldr = \f z xs -> if xs == [] then z else f (head xs) $ foldr f z $ tail xs
+
+let sum = \xs -> xs $> foldl (+) 0
+let product = \xs -> xs $> foldl (*) 1
+
+let .. = \from to -> if from > to then [] else from :: (from + 1) .. to
+

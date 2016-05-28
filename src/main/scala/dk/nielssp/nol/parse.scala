@@ -18,46 +18,73 @@ object parse extends Parsers {
     def rest = TokenReader(tokens.tail)
   }
 
-  def expr: Parser[Expr] = letExpr | lambdaExpr | ifExpr | infix
+  def program: Parser[Program] = phrase(rep(statement)) ^^ Program
 
-  def letExpr: Parser[Expr] = keyword("let") ~> rep1sep(assign, operator(",")) ~ (keyword("in") ~> expr) ^^ {
+  def statement: Parser[Statement] = positioned(definition | importStmt)
+
+  def definition: Parser[Definition] = keyword("let") ~> assign
+
+  def importStmt: Parser[Import] = keyword("import") ~> acceptMatch("a string", {
+    case StringToken(name) => Import(name)
+  })
+
+  def replExpr: Parser[Expr] = phrase(expr)
+
+  def expr: Parser[Expr] = positioned(letExpr | lambdaExpr | ifExpr)
+
+  def letExpr: Parser[Expr] = keyword("let") ~> rep1sep(assign, punctuation(",")) ~ (keyword("in") ~> expr) ^^ {
     case assigns ~ body => LetExpr(assigns, body)
   }
 
-  def assign: Parser[Assign] = name ~ (operator("=") ~> expr) ^^ {
-    case name ~ value => Assign(name, value)
-  }
-
-  def lambdaExpr: Parser[Expr] = operator("\\") ~> rep1(name) ~ (operator("->") ~> expr) ^^ {
-    case names ~ expr => LambdaExpr(names, expr)
+  def assign: Parser[Definition] = (monadicName | dyadicName) ~ (punctuation("=") ~> expr) ^^ {
+    case name ~ value => Definition(name.name, value)
   }
 
   def ifExpr: Parser[Expr] = keyword("if") ~> expr ~ (keyword("then") ~> expr) ~ (keyword("else") ~> expr) ^^ {
     case cond ~ ifTrue ~ ifFalse => IfExpr(cond, ifTrue, ifFalse)
   }
 
-  def infix: Parser[Expr] = chainl1(prefix, infixOperation)
+  def lambdaExpr: Parser[Expr] = punctuation("\\") ~> rep1(monadicName | dyadicName) ~ (punctuation("->") ~> expr) ^^ {
+    case names ~ expr => LambdaExpr(names.map(_.name), expr)
+  } | infix
+
+  def infix: Parser[Expr] = prefix ~ dyadicName ~ lambdaExpr ^^ {
+    case left ~ op ~ right => InfixExpr(op, left, right)
+  } | prefix
 
   def prefix: Parser[Expr] = rep1(atomic) ^^ {
     case List(atomic) => atomic
     case atomics => atomics.reduceLeft(PrefixExpr)
   }
 
-  def atomic: Parser[Expr] =
-    punctuation("(") ~> expr <~ punctuation(")") | list | positioned(name ^^ NameNode) | literal
+  def atomic: Parser[Expr] = positioned(
+      punctuation("(") ~> (partialInfix | expr) <~ punctuation(")") |
+      list |
+      monadicName |
+      literal
+  )
+
+  def partialInfix: Parser[Expr] = dyadicName ~ opt(lambdaExpr) ^^ {
+    case name ~ Some(expr) => LambdaExpr(Seq(" "), InfixExpr(name, NameNode(" "), expr))
+    case name ~ None => name
+  }
 
   def list: Parser[Expr] =
     punctuation("[") ~> rep(atomic) <~ punctuation("]") ^^ ListExpr
 
-  def name: Parser[String] = acceptMatch(s"a name", {
-    case NameToken(name) => name
-  })
+  def dyadicName: Parser[NameNode] = positioned(acceptMatch(s"a name", {
+    case InfixToken(name) => NameNode(name)
+  }))
 
-  def literal: Parser[Expr] = positioned(acceptMatch(s"a literal", {
+  def monadicName: Parser[NameNode] = positioned(acceptMatch(s"a name", {
+    case NameToken(name) => NameNode(name)
+  }))
+
+  def literal: Parser[Expr] = acceptMatch(s"a literal", {
     case IntToken(num) => IntNode(num.toInt)
     case FloatToken(num) => FloatNode(num.toDouble)
     case StringToken(value) => StringNode(value)
-  }))
+  })
 
   def keyword(str: String): Parser[Unit] = acceptMatch(s"keyword '$str'", {
     case KeywordToken(keyword) if keyword == str => ()
@@ -71,12 +98,16 @@ object parse extends Parsers {
     case PunctuationToken(punctuation) if punctuation == str => ()
   })
 
-  def infixOperation: Parser[(Expr, Expr) => Expr] = accept(s"an infix operator", {
-    case t@InfixToken(op) => (a: Expr, b: Expr) => InfixExpr(NameNode(op), a, b).setPos(t.pos)
-  })
-
-  def apply(tokens: Seq[Token]): Expr = expr(TokenReader(tokens)) match {
+  def repl(tokens: Seq[Token]): AstNode = program(TokenReader(tokens)) match {
     case Success(result, _) => result
-    case failure : NoSuccess => throw new SyntaxError(s"unexpected ${failure.next.first}, ${failure.msg}", failure.next.pos)
+    case NoSuccess(_, _) => replExpr(TokenReader(tokens)) match {
+      case Success(result, _) => result
+      case NoSuccess(msg, next) => throw new SyntaxError(s"unexpected ${next.first}, $msg", next.pos)
+    }
+  }
+
+  def apply(tokens: Seq[Token]): AstNode = program(TokenReader(tokens)) match {
+    case Success(result, _) => result
+    case NoSuccess(msg, next) => throw new SyntaxError(s"unexpected ${next.first}, $msg", next.pos)
   }
 }
