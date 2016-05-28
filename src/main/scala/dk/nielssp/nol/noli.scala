@@ -51,6 +51,9 @@ object noli {
     "::" -> dyadic {
       case (x, ListValue(xs)) => ListValue(x :: xs)
     },
+    "neg" -> monadic {
+      case (IntValue(x)) => IntValue(-x)
+    },
     "head" -> monadic {
       case (ListValue(x :: xs)) => x
     },

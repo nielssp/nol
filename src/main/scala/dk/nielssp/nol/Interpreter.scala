@@ -14,8 +14,8 @@ class Interpreter {
   val modules = mutable.HashMap.empty[String, Module]
 
   def apply(program: Program, scope: SymbolTable): Module = {
-    var newScope: SymbolTable = scope
-    newScope = program.imports.foldLeft(newScope) {
+    var symbolTable: SymbolTable = scope
+    symbolTable = program.imports.foldLeft(symbolTable) {
       case (scope, imp@Import(name)) =>
         scope ++ modules.getOrElseUpdate(name, {
           val file = new File(name + ".nol")
@@ -33,10 +33,10 @@ class Interpreter {
     }
     val exports = program.definitions.foldLeft(Map.empty[String, Value]) {
       case (scope, Definition(name, value)) =>
-        scope.updated(name, LazyValue(() => apply(value, newScope)))
+        scope.updated(name, LazyValue(() => apply(value, symbolTable)))
     }
-    newScope ++= exports
-    Module(newScope, exports)
+    symbolTable ++= exports
+    Module(symbolTable, exports)
   }
 
   def apply(expr: Expr, scope: SymbolTable): Value = (expr match {

@@ -8,7 +8,7 @@ let not = \x -> if x then false else true
 
 let odd = \x -> x % 2
 
-let even = \x -> not odd x
+let even = \x -> not $ odd x
 
 let abs =  \x -> if x < 0 then neg x else x
 

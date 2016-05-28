@@ -13,8 +13,9 @@ sealed abstract class Expr extends AstNode
 case class LetExpr(assigns: Seq[Definition], body: Expr) extends Expr
 case class LambdaExpr(names: Seq[String], expr: Expr) extends Expr
 case class IfExpr(cond: Expr, ifTrue: Expr, ifFalse: Expr) extends Expr
-case class InfixExpr(op: Expr, left: Expr, right: Expr) extends Expr
-case class PrefixExpr(op: Expr, arg: Expr) extends Expr
+sealed abstract class AppExpr extends Expr
+case class InfixExpr(op: Expr, left: Expr, right: Expr) extends AppExpr
+case class PrefixExpr(op: Expr, arg: Expr) extends AppExpr
 case class ListExpr(elements: Seq[Expr]) extends Expr
 case class NameNode(name: String) extends Expr
 case class StringNode(value: String) extends Expr
