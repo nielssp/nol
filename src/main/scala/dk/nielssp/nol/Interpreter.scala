@@ -7,29 +7,49 @@ import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
 class Interpreter {
+
   type SymbolTable = Map[String, Value]
 
   case class Module(symbols: SymbolTable, exports: SymbolTable)
 
+  val globals = mutable.HashMap.empty[String, Value]
+
   val modules = mutable.HashMap.empty[String, Module]
+
+  def refreshImports(): Unit = {
+    val names = modules.keySet
+    modules.clear()
+    modules ++= names.map(name => name -> loadModule(name))
+  }
+
+  def loadModule(name: String): Module = {
+    val file = new File(name + ".nol")
+    try {
+      apply(parse(lex(Source.fromFile(file).mkString)), globals.toMap)
+    } catch {
+      case e: Error =>
+        if (e.file == null) {
+          e.file = file
+        }
+        throw e
+      case e: IOException =>
+        throw new ImportError(s"module not found: $name", NoPosition)
+    }
+  }
 
   def apply(program: Program, scope: SymbolTable): Module = {
     var symbolTable: SymbolTable = scope
     symbolTable = program.imports.foldLeft(symbolTable) {
       case (scope, imp@Import(name)) =>
-        scope ++ modules.getOrElseUpdate(name, {
-          val file = new File(name + ".nol")
-          try {
-            apply(parse(lex(Source.fromFile(file).mkString)), scope)
-          } catch {
-            case e: Error =>
-              if (e.file == null)
-                e.file = file
-              throw e
-            case e: IOException =>
-              throw new ImportError(s"module not found: $name", imp.pos)
-          }
-        }).exports
+        try {
+          scope ++ modules.getOrElseUpdate(name, {
+            loadModule(name)
+          }).exports
+        } catch {
+          case e: ImportError =>
+            e.pos = imp.pos
+            throw e
+        }
     }
     val exports = program.definitions.foldLeft(Map.empty[String, Value]) {
       case (scope, Definition(name, value)) =>

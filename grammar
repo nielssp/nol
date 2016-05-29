@@ -1,12 +1,17 @@
 
+Program ::= {Import} {Definition}
+
+Import ::= "import" string
+
+Definition ::= "let" Assign
+
+Assign ::= name "=" Expr
 
 Expr ::= LetExpr
        | IfExpr
        | LambdaExpr
 
 LetExpr ::= "let" Assign {"," Assign} "in" Expr
-
-Assign ::= name "=" Expr
 
 IfExpr ::= "if" Expr "then" Expr "else" Expr
 

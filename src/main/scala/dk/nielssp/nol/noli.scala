@@ -67,25 +67,30 @@ object noli {
   def main(args: Array[String]): Unit = {
     val console = new ConsoleReader
     val interpreter = new Interpreter
-    var scope: interpreter.SymbolTable = stdlib
+    interpreter.globals ++= stdlib
+    var scope: interpreter.SymbolTable = interpreter.globals.toMap
     while (true) {
       val line = console.readLine("> ")
       if (line == null) {
         System.exit(0)
-      }
-      try {
-        val tokens = lex(line)
-        val ast = parse.repl(tokens)
-        ast match {
-          case p: Program => scope = interpreter(p, scope).symbols
-          case e: Expr =>
-            val value = interpreter(e, scope)
-            console.println(s"$value")
+      } else if (line == ":r") {
+        console.println("Refreshing imports...")
+        interpreter.refreshImports()
+      } else {
+        try {
+          val tokens = lex(line)
+          val ast = parse.repl(tokens)
+          ast match {
+            case p: Program => scope = interpreter(p, scope).symbols
+            case e: Expr =>
+              val value = interpreter(e, scope)
+              console.println(s"$value")
+          }
+        } catch {
+          case e: Error =>
+            console.println(s"Error: ${e.getMessage} on line ${e.pos.line} column ${e.pos.column} in ${e.file}")
+            console.println(e.pos.longString)
         }
-      } catch {
-        case e: Error =>
-          console.println(s"Error: ${e.getMessage} on line ${e.pos.line} column ${e.pos.column} in ${e.file}")
-          console.println(e.pos.longString)
       }
     }
   }

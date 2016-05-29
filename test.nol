@@ -1,9 +1,22 @@
 import "list"
 import "util"
 
-let factorial = \n -> if n <= 1 then 1 else n * factorial $ n - 1
+let factorial = \n ->
+  if n <= 1
+    then 1
+    else n * factorial $ n - 1
 
-let gcd = \a b -> if b > 0 then gcd b $ a % b else a
+let factorial2 = \n ->
+  let rec = \n acc ->
+      if n <= 0
+        then acc
+        else rec (n - 1) $ n * acc
+  in rec n 1
+
+let gcd = \a b ->
+  if b > 0
+    then gcd b $ a % b
+    else a
 
 let myList = [4 3 6 1 2 9]
 

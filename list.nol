@@ -64,6 +64,13 @@ let foldl = \f z xs -> if xs == [] then z else foldl f (f z $ head xs) $ tail xs
 
 let foldr = \f z xs -> if xs == [] then z else f (head xs) $ foldr f z $ tail xs
 
+let zipWith = \f xs ys ->
+  if (xs == []) | ys == []
+    then []
+    else f (head xs) (head ys) :: zipWith f (tail xs) (tail ys)
+
+let zip = zipWith $ \x y -> [x y]
+
 let sum = \xs -> xs $> foldl (+) 0
 let product = \xs -> xs $> foldl (*) 1
 
