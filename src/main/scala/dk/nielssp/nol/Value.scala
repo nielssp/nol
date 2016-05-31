@@ -34,8 +34,9 @@ case class LazyValue(value: () => Value) extends Value {
   override def getType = value().getType
 }
 
-sealed class Type extends Value {
+sealed class Type(name: String = "") extends Value {
   override def getType = Type.Type
+  override def toString = if (name.nonEmpty) name else super.toString
 
   def ftv = Set.empty[String]
 
@@ -43,14 +44,14 @@ sealed class Type extends Value {
   def unify(other: Type): Map[String, Type] = other match {
     case _ if other == this => Map.empty
     case TypeVar(name) => bind(name)
-    case _ => throw new TypeError("types did not unify", NoPosition)
+    case _ => throw new TypeError(s"could not match type '$this' with type '$other'", NoPosition)
   }
   def bind(name: String): Map[String, Type] =
-    if (ftv.contains(name)) throw new TypeError("occurs check failed", NoPosition)
+    if (ftv.contains(name)) throw new TypeError(s"occurs check failed: cannot bind '$name' to '$this'", NoPosition)
     else Map(name -> this)
 }
 
-case class TypeVar(name: String) extends Type {
+case class TypeVar(name: String) extends Type(name) {
   override val ftv = Set(name)
   override def apply(sub: Map[String, Type]): Type = sub.get(name) match {
     case Some(t) => t.apply(sub)
@@ -64,6 +65,10 @@ case class TypeVar(name: String) extends Type {
 
 case class CompositeType(types: Type*) extends Type {
   override val ftv = types.flatMap(_.ftv).toSet
+  override def toString = types.map {
+    case t: CompositeType => s"($t)"
+    case t => t.toString
+  }.mkString(" ")
   override def apply(sub: Map[String, Type]): Type = CompositeType(types.map(_(sub)): _*)
   override def unify(other: Type): Map[String, Type] = other match {
     case CompositeType(otherTypes @ _*) if types.length == otherTypes.length =>
@@ -76,16 +81,16 @@ case class CompositeType(types: Type*) extends Type {
 }
 
 object Type {
-  val Type = new Type
-  val Int = new Type
-  val Float = new Type
-  val Bool = new Type
-  val String = new Type
+  val Type = new Type("Type")
+  val Int = new Type("Int")
+  val Float = new Type("Float")
+  val Bool = new Type("Bool")
+  val String = new Type("String")
 
-  private val listTag = new Type
+  private val listTag = new Type("[]")
   def List(element: Type): Type = CompositeType(listTag, element)
 
-  private val functionTag = new Type
+  private val functionTag = new Type("->")
   def Function(in: Type, out: Type): Type = CompositeType(functionTag, in, out)
 
   def compose(head: Map[String, Type], tail: Map[String, Type]*): Map[String, Type] =

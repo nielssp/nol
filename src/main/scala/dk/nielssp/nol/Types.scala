@@ -6,12 +6,32 @@ trait Types {
 }
 
 case class TypeScheme(names: List[String], t: Type) extends Types {
+  override def toString = if (names.isEmpty) t.toString else names.mkString(", ") + s" => $t"
   override def ftv = t.ftv -- names
   override def apply(s: Map[String, Type]): TypeScheme = TypeScheme(names, t.apply(s -- names))
 
   def instantiate(newVar: String => TypeVar): Type = {
-    val newNames = names.map(_ => newVar("a"))
+    val newNames = names.map(_ => newVar("t"))
     t.apply(Map.empty ++ names.zip(newNames))
+  }
+
+  def prettify: TypeScheme = {
+    var letter = -1
+    var number = 0
+    def nextName(): String = {
+      if (letter >= 25) {
+        letter = -1
+        number += 1
+      }
+      letter += 1
+      if (names.length > 26)
+        ('a' + letter).toChar.toString + number
+      else
+        ('a' + letter).toChar.toString
+    }
+    val newNames = names.map(_ => TypeVar(nextName()))
+    val s: Map[String, Type] = Map.empty ++ names.zip(newNames)
+    TypeScheme(newNames.map(_.name), t.apply(s))
   }
 }
 case class TypeEnv(env: Map[String, TypeScheme]) extends Types {
