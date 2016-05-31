@@ -67,6 +67,7 @@ object noli {
   def main(args: Array[String]): Unit = {
     val console = new ConsoleReader
     val interpreter = new Interpreter
+    val typeChecker = new TypeChecker
     interpreter.globals ++= stdlib
     var scope: interpreter.SymbolTable = interpreter.globals.toMap
     while (true) {
@@ -85,6 +86,8 @@ object noli {
             case e: Expr =>
               val value = interpreter(e, scope)
               console.println(s"$value")
+//              val (_, t) = typeChecker(TypeEnv(Map.empty), e)
+//              console.println(s" : ${TypeEnv(Map.empty).generalize(t).prettify}")
           }
         } catch {
           case e: Error =>
