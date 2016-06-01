@@ -6,7 +6,7 @@ trait Types {
 }
 
 case class TypeScheme(names: List[String], t: Type) extends Types {
-  override def toString = if (names.isEmpty) t.toString else names.mkString(", ") + s" => $t"
+  override def toString = if (names.isEmpty) t.toString else "forall " + names.mkString(", ") + s" . $t"
   override def ftv = t.ftv -- names
   override def apply(s: Map[String, Type]): TypeScheme = TypeScheme(names, t.apply(s -- names))
 

@@ -6,45 +6,20 @@ import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class Interpreter {
+class Interpreter(moduleLoader: ModuleLoader) {
 
   type SymbolTable = Map[String, Value]
 
-  case class Module(symbols: SymbolTable, exports: SymbolTable)
+  val modules = mutable.HashMap.empty[String, SymbolTable]
 
-  val globals = mutable.HashMap.empty[String, Value]
-
-  val modules = mutable.HashMap.empty[String, Module]
-
-  def refreshImports(): Unit = {
-    val names = modules.keySet
-    modules.clear()
-    modules ++= names.map(name => name -> loadModule(name))
-  }
-
-  def loadModule(name: String): Module = {
-    val file = new File(name + ".nol")
-    try {
-      apply(parse(lex(Source.fromFile(file).mkString)), globals.toMap)
-    } catch {
-      case e: Error =>
-        if (e.file == null) {
-          e.file = file
-        }
-        throw e
-      case e: IOException =>
-        throw new ImportError(s"module not found: $name", NoPosition)
-    }
-  }
-
-  def apply(program: Program, scope: SymbolTable): Module = {
+  def apply(program: Program, scope: SymbolTable): SymbolTable = {
     var symbolTable: SymbolTable = scope
     symbolTable = program.imports.foldLeft(symbolTable) {
       case (scope, imp@Import(name)) =>
         try {
           scope ++ modules.getOrElseUpdate(name, {
-            loadModule(name)
-          }).exports
+            apply(moduleLoader(name).program, scope)
+          })
         } catch {
           case e: ImportError =>
             e.pos = imp.pos
@@ -55,8 +30,7 @@ class Interpreter {
       case (scope, Definition(name, value)) =>
         scope.updated(name, LazyValue(() => apply(value, symbolTable)))
     }
-    symbolTable ++= exports
-    Module(symbolTable, exports)
+    exports
   }
 
   def apply(expr: Expr, scope: SymbolTable): Value = (expr match {

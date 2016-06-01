@@ -21,6 +21,17 @@ object noli {
   }
 
   val stdlib = Map(
+    "Type" -> Type.Type,
+    "Int" -> Type.Int,
+    "Float" -> Type.Float,
+    "String" -> Type.String,
+    "Bool" -> Type.Bool,
+    "[]" -> monadic{
+      case t: Type => Type.List(t)
+    },
+    "->" -> dyadic{
+      case (a: Type, b: Type) => Type.Function(a, b)
+    },
     "+" -> dyadic {
       case (IntValue(a), IntValue(b)) => IntValue(a + b)
     },
@@ -66,23 +77,22 @@ object noli {
 
   def main(args: Array[String]): Unit = {
     val console = new ConsoleReader
-    val interpreter = new Interpreter
-    val typeChecker = new TypeChecker
-    interpreter.globals ++= stdlib
-    var scope: interpreter.SymbolTable = interpreter.globals.toMap
+    val loader = new ModuleLoader
+    loader.modules("std") = new Module("std", Program(Seq.empty, Seq.empty))
+    loader.includePath += "."
+    val typeChecker = new TypeChecker(loader)
+    val interpreter = new Interpreter(loader)
+    var scope = interpreter(Program(Seq(Import("std")), Seq.empty), Map.empty[String, Value])
     while (true) {
       val line = console.readLine("> ")
       if (line == null) {
         System.exit(0)
-      } else if (line == ":r") {
-        console.println("Refreshing imports...")
-        interpreter.refreshImports()
       } else {
         try {
           val tokens = lex(line)
           val ast = parse.repl(tokens)
           ast match {
-            case p: Program => scope = interpreter(p, scope).symbols
+            case p: Program => scope = interpreter(p, scope)
             case e: Expr =>
               val value = interpreter(e, scope)
               console.println(s"$value")

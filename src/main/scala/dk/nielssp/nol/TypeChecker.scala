@@ -6,51 +6,33 @@ import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class TypeChecker {
-
-  case class Module(symbols: TypeEnv, exports: TypeEnv)
-
-  val globals = mutable.HashMap.empty[String, TypeScheme]
-
-  val modules = mutable.HashMap.empty[String, Module]
+class TypeChecker(moduleLoader: ModuleLoader) {
 
   private var supply = 0
+
+  val modules = mutable.HashMap.empty[String, TypeEnv]
 
   def newTypeVar(prefix: String = "t"): TypeVar = {
     supply += 1
     TypeVar(prefix + supply)
   }
 
-  def loadModule(name: String): Module = {
-    val file = new File(name + ".nol")
-    try {
-      apply(TypeEnv(globals.toMap), parse(lex(Source.fromFile(file).mkString)))
-    } catch {
-      case e: Error =>
-        if (e.file == null) {
-          e.file = file
-        }
-        throw e
-      case e: IOException =>
-        throw new ImportError(s"module not found: $name", NoPosition)
-    }
-  }
-
-  def apply(env: TypeEnv, program: Program): Module = {
+  def apply(program: Program, env: TypeEnv): TypeEnv = {
     val imports = program.imports.foldLeft(env) {
       case (scope, imp@Import(name)) =>
         try {
+          val module = moduleLoader(name)
           env.union(modules.getOrElseUpdate(name, {
-            loadModule(name)
-          }).exports)
+            apply(module.program, env)
+          }))
         } catch {
           case e: ImportError =>
             e.pos = imp.pos
             throw e
         }
     }
-    val exports = apply(imports, program.definitions)
-    Module(imports.union(exports), exports)
+    val env2 = apply(program.definitions, imports)
+    TypeEnv(program.definitions.flatMap(d => env2.get(d.name).map(d.name -> _)).toMap)
   }
 
   def tryUnify(t1: Type, t2: Type, node: AstNode): Map[String, Type] =
@@ -62,13 +44,13 @@ class TypeChecker {
         throw e
     }
 
-  def apply(env: TypeEnv, definitions: Seq[Definition]): TypeEnv = {
+  def apply(definitions: Seq[Definition], env: TypeEnv): TypeEnv = {
     val vars = definitions.map(_ -> newTypeVar())
     val env2 = TypeEnv(env.env ++ vars.map {
       case (Definition(name, _), v) => name -> TypeScheme(List.empty, v)
     })
     val inferred = vars.map {
-      case (Definition(name, value), v) => apply(env2, value)
+      case (Definition(name, value), v) => apply(value, env2)
     }
     val subs1 = inferred.map{ case (s, t) => s }
     val s1 = Type.compose(subs1.head, subs1.tail: _*)
@@ -81,43 +63,43 @@ class TypeChecker {
     })
   }
 
-  def apply(env: TypeEnv, expr: Expr): (Map[String, Type], Type) =
-    expr match {
-      case LetExpr(assigns, body) => apply(apply(env, assigns), body)
-      case LambdaExpr(Nil, expr) => apply(env, expr)
+  def apply(expr: Expr, env: TypeEnv): (Map[String, Type], Type) = {
+    val (s: Map[String, Type], t) = expr match {
+      case LetExpr(assigns, body) => apply(body, apply(assigns, env))
+      case LambdaExpr(Nil, expr) => apply(expr, env)
       case LambdaExpr(name :: names, expr) =>
         val v = newTypeVar()
         val env2 = env.updated(name, TypeScheme(List.empty, v))
-        val (s1, t1) = apply(env2, LambdaExpr(names, expr))
+        val (s1, t1) = apply(LambdaExpr(names, expr), env2)
         (s1, Type.Function(v.apply(s1), t1.apply(s1)))
       case IfExpr(cond, ifTrue, ifFalse) =>
-        val (s1, t1) = apply(env, cond)
-        val (s2, t2) = apply(env.apply(s1), ifTrue)
-        val (s3, t3) = apply(env.apply(s2), ifFalse)
+        val (s1, t1) = apply(cond, env)
+        val (s2, t2) = apply(ifTrue, env.apply(s1))
+        val (s3, t3) = apply(ifFalse, env.apply(s2))
         val s4 = tryUnify(t1.apply(s3), Type.Bool, cond)
         val s5 = tryUnify(t2.apply(s4), t3.apply(s4), ifFalse)
         (Type.compose(s5, s4, s3, s2, s1), t3)
       case InfixExpr(op, left, right) =>
         val v = newTypeVar()
-        val (s1, t1) = apply(env, op)
-        val (s2, t2) = apply(env.apply(s1), left)
-        val (s3, t3) = apply(env.apply(s2), right)
+        val (s1, t1) = apply(op, env)
+        val (s2, t2) = apply(left, env.apply(s1))
+        val (s3, t3) = apply(right, env.apply(s2))
         val s4 = tryUnify(t1.apply(s3), Type.Function(t2, Type.Function(t3, v)), op)
         (Type.compose(s4, s3, s2, s1), v.apply(s4))
       case PrefixExpr(op, arg) =>
         val v = newTypeVar()
-        val (s1, t1) = apply(env, op)
-        val (s2, t2) = apply(env.apply(s1), arg)
+        val (s1, t1) = apply(op, env)
+        val (s2, t2) = apply(arg, env.apply(s1))
         val s3 = tryUnify(t1.apply(s2), Type.Function(t2, v), arg)
         (Type.compose(s3, s2, s1), v.apply(s3))
       case ListExpr(Nil) => (Map.empty, Type.List(newTypeVar()))
       case ListExpr(head :: Nil) =>
-        val (s1, t1) = apply(env, head)
+        val (s1, t1) = apply(head, env)
         (s1, Type.List(t1))
       case ListExpr(head :: tail) =>
         val v = newTypeVar()
-        val (s1, t1) = apply(env, head)
-        val (s2, t2) = apply(env.apply(s1), ListExpr(tail))
+        val (s1, t1) = apply(head, env)
+        val (s2, t2) = apply(ListExpr(tail), env.apply(s1))
         val s3 = tryUnify(t1.apply(s2), v, head)
         val s4 = tryUnify(t2.apply(s3), Type.List(v.apply(s3)), head)
         (Type.compose(s1, s2, s3, s4), t2)
@@ -133,4 +115,7 @@ class TypeChecker {
       case FloatNode(value) =>
         (Map.empty, Type.Float)
     }
+    expr.typeAnnotation = Some(t)
+    (s, t)
+  }
 }
