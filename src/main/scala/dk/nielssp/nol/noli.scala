@@ -82,17 +82,21 @@ object noli {
     loader.includePath += "."
     val typeChecker = new TypeChecker(loader)
     val interpreter = new Interpreter(loader)
-    var scope = interpreter(Program(Seq(Import("std")), Seq.empty), Map.empty[String, Value])
+//    var scope = interpreter(Program(Seq(Import("std")), Seq.empty), Map.empty[String, Value])
+    var scope = stdlib
     while (true) {
       val line = console.readLine("> ")
       if (line == null) {
         System.exit(0)
+      } else if (line.startsWith(":i ")) {
+        val name = line.drop(3).trim
+        scope = scope ++ interpreter(loader.load(name).program, scope)
       } else {
         try {
           val tokens = lex(line)
           val ast = parse.repl(tokens)
           ast match {
-            case p: Program => scope = interpreter(p, scope)
+            case p: Program => scope = scope ++ interpreter(p, scope)
             case e: Expr =>
               val value = interpreter(e, scope)
               console.println(s"$value")
