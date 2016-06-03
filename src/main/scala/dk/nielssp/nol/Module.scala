@@ -7,9 +7,17 @@ import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class Module(val name: String, val program: Program) {
+class Module(val name: String) {
 
-  var typeEnv: Option[TypeEnv] = None
+  var program: Option[Program] = None
+
+  val symbols = new mutable.HashMap[String, Symbol]
+}
+
+class Symbol {
+  var node: Option[Expr] = None
+  var typeScheme: Option[TypeScheme] = None
+  var value: Option[Value] = None
 }
 
 class ModuleLoader {
@@ -24,8 +32,8 @@ class ModuleLoader {
       throw new ImportError(s"module not found: $name", NoPosition)
     }
     try {
-      val program = parse(lex(Source.fromFile(file).mkString))
-      val m = new Module(name, program)
+      val m = new Module(name)
+      m.program = Some(parse(lex(Source.fromFile(file).mkString)))
       modules(name) = m
       m
     } catch {

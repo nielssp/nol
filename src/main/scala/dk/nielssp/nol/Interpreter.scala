@@ -18,7 +18,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
       case (scope, imp@Import(name)) =>
         try {
           scope ++ modules.getOrElseUpdate(name, {
-            apply(moduleLoader(name).program, scope)
+            apply(moduleLoader(name).program.get, scope)
           })
         } catch {
           case e: ImportError =>

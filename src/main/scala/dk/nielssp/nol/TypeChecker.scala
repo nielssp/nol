@@ -23,7 +23,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         try {
           val module = moduleLoader(name)
           env.union(modules.getOrElseUpdate(name, {
-            apply(module.program, env)
+            apply(module.program.get, env)
           }))
         } catch {
           case e: ImportError =>

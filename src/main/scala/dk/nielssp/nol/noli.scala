@@ -26,7 +26,7 @@ object noli {
     "Float" -> Type.Float,
     "String" -> Type.String,
     "Bool" -> Type.Bool,
-    "[]" -> monadic{
+    "List" -> monadic{
       case t: Type => Type.List(t)
     },
     "->" -> dyadic{
@@ -78,7 +78,7 @@ object noli {
   def main(args: Array[String]): Unit = {
     val console = new ConsoleReader
     val loader = new ModuleLoader
-    loader.modules("std") = new Module("std", Program(Seq.empty, Seq.empty))
+    loader.modules("std") = new Module("std")
     loader.includePath += "."
     val typeChecker = new TypeChecker(loader)
     val interpreter = new Interpreter(loader)
@@ -86,28 +86,37 @@ object noli {
     var scope = stdlib
     while (true) {
       val line = console.readLine("> ")
-      if (line == null) {
-        System.exit(0)
-      } else if (line.startsWith(":i ")) {
-        val name = line.drop(3).trim
-        scope = scope ++ interpreter(loader.load(name).program, scope)
-      } else {
-        try {
-          val tokens = lex(line)
+      try {
+        if (line == null) {
+          System.exit(0)
+        } else if (line.startsWith(":i")) {
+          val name = line.drop(2).trim
+          scope = scope ++ interpreter(loader.load(name).program.get, scope)
+        } else if (line.startsWith(":t")) {
+          val tokens = lex(line.drop(2))
           val ast = parse.repl(tokens)
           ast match {
-            case p: Program => scope = scope ++ interpreter(p, scope)
+            case p: Program =>
             case e: Expr =>
-              val value = interpreter(e, scope)
-              console.println(s"$value")
-//              val (_, t) = typeChecker(TypeEnv(Map.empty), e)
-//              console.println(s" : ${TypeEnv(Map.empty).generalize(t).prettify}")
+              val (_, t) = typeChecker(e, TypeEnv(Map.empty))
+              console.println(s" : ${TypeEnv(Map.empty).generalize(t).prettify}")
           }
-        } catch {
-          case e: Error =>
-            console.println(s"Error: ${e.getMessage} on line ${e.pos.line} column ${e.pos.column} in ${e.file}")
-            console.println(e.pos.longString)
+        } else {
+            val tokens = lex(line)
+            val ast = parse.repl(tokens)
+            ast match {
+              case p: Program => scope = scope ++ interpreter(p, scope)
+              case e: Expr =>
+                val value = interpreter(e, scope)
+                console.println(s"$value")
+  //              val (_, t) = typeChecker(e, TypeEnv(Map.empty))
+  //              console.println(s" : ${TypeEnv(Map.empty).generalize(t).prettify}")
+            }
         }
+      } catch {
+        case e: Error =>
+          console.println(s"Error: ${e.getMessage} on line ${e.pos.line} column ${e.pos.column} in ${e.file}")
+          console.println(e.pos.longString)
       }
     }
   }
