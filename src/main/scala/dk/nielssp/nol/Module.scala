@@ -7,17 +7,22 @@ import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class Module(val name: String) {
+class Module(val name: String, val program: Program) {
 
-  var program: Option[Program] = None
-
-  val symbols = new mutable.HashMap[String, Symbol]
+  def typeEnv: Map[String, Type] = program.definitions.flatMap {
+    case Definition(name, value) => value.typeAnnotation.map(name -> _)
+  }.toMap
 }
 
-class Symbol {
-  var node: Option[Expr] = None
-  var typeScheme: Option[TypeScheme] = None
-  var value: Option[Value] = None
+object Module {
+
+  def fromTypeEnv(name: String, typeEnv: Map[String, Type]): Module =
+    new Module(name, Program(Seq.empty, typeEnv.map {
+      case (name, t) =>
+        val node = NameNode("undefined")
+        node.typeAnnotation = Some(t)
+        Definition(name, node)
+    }.toSeq))
 }
 
 class ModuleLoader {
@@ -32,8 +37,7 @@ class ModuleLoader {
       throw new ImportError(s"module not found: $name", NoPosition)
     }
     try {
-      val m = new Module(name)
-      m.program = Some(parse(lex(Source.fromFile(file).mkString)))
+      val m = new Module(name, parse(lex(Source.fromFile(file).mkString)))
       modules(name) = m
       m
     } catch {

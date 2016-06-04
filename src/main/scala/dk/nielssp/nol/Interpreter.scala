@@ -18,7 +18,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
       case (scope, imp@Import(name)) =>
         try {
           scope ++ modules.getOrElseUpdate(name, {
-            apply(moduleLoader(name).program.get, scope)
+            apply(moduleLoader(name).program, scope)
           })
         } catch {
           case e: ImportError =>
@@ -30,6 +30,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
       case (scope, Definition(name, value)) =>
         scope.updated(name, LazyValue(() => apply(value, symbolTable)))
     }
+    symbolTable = symbolTable ++ exports
     exports
   }
 

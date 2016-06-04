@@ -20,17 +20,17 @@ object noli {
     }
   }
 
-  val stdlib = Map(
-    "Type" -> Type.Type,
-    "Int" -> Type.Int,
-    "Float" -> Type.Float,
-    "String" -> Type.String,
-    "Bool" -> Type.Bool,
+  val stdImplementation = Map(
+    "Type" -> Monotype.Type,
+    "Int" -> Monotype.Int,
+    "Float" -> Monotype.Float,
+    "String" -> Monotype.String,
+    "Bool" -> Monotype.Bool,
     "List" -> monadic{
-      case t: Type => Type.List(t)
+      case t: Monotype => Monotype.List(t)
     },
     "->" -> dyadic{
-      case (a: Type, b: Type) => Type.Function(a, b)
+      case (a: Monotype, b: Monotype) => Monotype.Function(a, b)
     },
     "+" -> dyadic {
       case (IntValue(a), IntValue(b)) => IntValue(a + b)
@@ -78,12 +78,13 @@ object noli {
   def main(args: Array[String]): Unit = {
     val console = new ConsoleReader
     val loader = new ModuleLoader
-    loader.modules("std") = new Module("std")
+    loader.modules("std") = std
     loader.includePath += "."
     val typeChecker = new TypeChecker(loader)
     val interpreter = new Interpreter(loader)
-//    var scope = interpreter(Program(Seq(Import("std")), Seq.empty), Map.empty[String, Value])
-    var scope = stdlib
+    interpreter.modules("std") = stdImplementation
+    var types = TypeEnv(std.typeEnv)
+    var scope = stdImplementation
     while (true) {
       val line = console.readLine("> ")
       try {
@@ -91,22 +92,26 @@ object noli {
           System.exit(0)
         } else if (line.startsWith(":i")) {
           val name = line.drop(2).trim
-          scope = scope ++ interpreter(loader.load(name).program.get, scope)
+          types = types.union(typeChecker(loader(name).program, types))
+          scope = scope ++ interpreter(loader(name).program, scope)
         } else if (line.startsWith(":t")) {
           val tokens = lex(line.drop(2))
           val ast = parse.repl(tokens)
           ast match {
             case p: Program =>
             case e: Expr =>
-              val (_, t) = typeChecker(e, TypeEnv(Map.empty))
-              console.println(s" : ${TypeEnv(Map.empty).generalize(t).prettify}")
+              val (_, t) = typeChecker(e, types)
+              console.println(s" : ${types.generalize(t).prettify}")
           }
         } else {
             val tokens = lex(line)
             val ast = parse.repl(tokens)
             ast match {
-              case p: Program => scope = scope ++ interpreter(p, scope)
+              case p: Program =>
+                types = types.union(typeChecker(p, types))
+                scope = scope ++ interpreter(p, scope)
               case e: Expr =>
+                val t = typeChecker(e, types)
                 val value = interpreter(e, scope)
                 console.println(s"$value")
   //              val (_, t) = typeChecker(e, TypeEnv(Map.empty))
