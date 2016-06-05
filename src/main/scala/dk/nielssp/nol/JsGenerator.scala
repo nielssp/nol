@@ -39,11 +39,6 @@ class JsGenerator {
     }.mkString
   }
 
-  def sortDefinitions(definitions: Seq[Definition]): Seq[Definition] =
-    definitions.sortWith {
-      case (Definition(n1, e1), Definition(n2, e2)) => e2.free.contains(n1)
-    }
-
   def apply(program: Program, scope: SymbolTable): (String, Module) = {
     var symbolTable: SymbolTable = scope
     val out = new StringBuilder
@@ -69,7 +64,7 @@ class JsGenerator {
     }
     val exports = program.definitions.map(_.name -> none).toMap
     symbolTable ++= exports
-    sortDefinitions(program.definitions).foreach {
+    Definition.sort(program.definitions).foreach {
       case Definition(name, value) =>
         out ++= s"var ${encode(name)} = ${apply(value, symbolTable)};\n"
     }
@@ -80,7 +75,7 @@ class JsGenerator {
   def apply(expr: Expr, scope: SymbolTable): String = expr match {
     case LetExpr(assigns, body) =>
       val newScope = scope ++ assigns.map(_.name -> none)
-      val bindings = sortDefinitions(assigns).map {
+      val bindings = Definition.sort(assigns).map {
         case Definition(name, value) =>
           s"var ${encode(name)} = ${apply(value, newScope)};"
       }.mkString

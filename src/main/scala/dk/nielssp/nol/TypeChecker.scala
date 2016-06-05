@@ -48,23 +48,27 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     if (definitions.isEmpty) {
       TypeEnv(Map.empty)
     } else {
-      // TODO: this method does not work properly
-      val vars = definitions.map(_ -> newTypeVar())
-      val env2 = TypeEnv(env.env ++ vars.map {
-        case (Definition(name, _), v) => name -> TypeScheme(List.empty, v)
-      })
-      val inferred = vars.map {
-        case (Definition(name, value), v) => apply(value, env2)
+      val grouped = Definition.group(definitions)
+      println(s"decl groups: ${grouped.map(_.map(_.name).mkString(",")).mkString(";")}")
+      Definition.group(definitions).foldLeft(env) {
+        case (env, definitions) =>
+          val vars = definitions.map(_ -> newTypeVar())
+          val env2 = TypeEnv(env.env ++ vars.map {
+            case (Definition(name, _), v) => name -> TypeScheme(List.empty, v)
+          })
+          val inferred = vars.map {
+            case (Definition(name, value), v) => apply(value, env2)
+          }
+          val subs1 = inferred.map{ case (s, t) => s }
+          val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
+          val subs2 =  vars.zip(inferred).map {
+            case ((d, v), (_, t)) => tryUnify(v.apply(s1), t.apply(s1), d)
+          }
+          val s2 = Monotype.compose(s1, subs2: _*)
+          TypeEnv(env.env ++ vars.zip(inferred).map {
+            case ((Definition(name, _), v), (_, t)) => name -> env2.generalize(t.apply(s2))
+          })
       }
-      val subs1 = inferred.map{ case (s, t) => s }
-      val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
-      val subs2 =  vars.zip(inferred).map {
-        case ((d, v), (_, t)) => tryUnify(v.apply(s1), t, d)
-      }
-      val s2 = Monotype.compose(s1, subs2: _*)
-      TypeEnv(env.env ++ vars.zip(inferred).map {
-        case ((Definition(name, _), v), (_, t)) => name -> env2.generalize(t.apply(s2))
-      })
     }
 
   def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Monotype) = {
@@ -106,7 +110,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val (s2, t2) = apply(ListExpr(tail), env.apply(s1))
         val s3 = tryUnify(t1.apply(s2), v, head)
         val s4 = tryUnify(t2.apply(s3), Monotype.List(v.apply(s3)), head)
-        (Monotype.compose(s1, s2, s3, s4), t2)
+        (Monotype.compose(s4, s3, s2, s1), t2)
       case NameNode(name) =>
         env.get(name) match {
           case Some(t) => (Map.empty, t.instantiate(newTypeVar))

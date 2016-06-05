@@ -6,7 +6,9 @@ let % = \a b -> a - b * a / b
 
 let not = \x -> if x then false else true
 
-let odd = \x -> x % 2
+let != = \a b -> not $ a == b
+
+let odd = \x -> 0 != x % 2
 
 let even = \x -> not $ odd x
 
