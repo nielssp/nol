@@ -58,6 +58,17 @@ let sort = \f list ->
       in
         sort f lesser ++ [x] ++ sort f greater
 
+let sort2 = \f list ->
+  if list == []
+    then []
+    else
+      let x       = head list in
+      let xs      = tail list in
+      let lesser  = xs `filter` \y -> f y x < 0 in
+      let greater = xs `filter` \y -> f y x >= 0
+      in
+        sort2 f lesser ++ [x] ++ sort2 f greater
+
 let `sort` = flip sort
 
 let foldl = \f z xs -> if xs == [] then z else foldl f (f z $ head xs) $ tail xs

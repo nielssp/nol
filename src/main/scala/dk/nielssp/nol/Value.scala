@@ -84,7 +84,7 @@ sealed class Monotype(name: String = "") extends Type {
 case class TypeVar(name: String) extends Monotype(name) {
   override val ftv = Set(name)
   override def apply(sub: Map[String, Monotype]): Monotype = sub.get(name) match {
-    case Some(t) if t == this => throw new Exception(s"this is not supposed to happen ($t)")
+    case Some(t) if t == this => this // TODO: throw new TypeError(s"substitution cycle ($t)", NoPosition)
     case Some(t) => t.apply(sub)
     case None => this
   }

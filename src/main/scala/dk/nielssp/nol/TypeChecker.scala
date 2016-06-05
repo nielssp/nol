@@ -50,30 +50,43 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     } else {
       val grouped = Definition.group(definitions)
       println(s"decl groups: ${grouped.map(_.map(_.name).mkString(",")).mkString(";")}")
-      Definition.group(definitions).foldLeft(env) {
+      grouped.foldLeft(env) {
         case (env, definitions) =>
-          val vars = definitions.map(_ -> newTypeVar())
-          val env2 = TypeEnv(env.env ++ vars.map {
-            case (Definition(name, _), v) => name -> TypeScheme(List.empty, v)
-          })
-          val inferred = vars.map {
-            case (Definition(name, value), v) => apply(value, env2)
-          }
-          val subs1 = inferred.map{ case (s, t) => s }
-          val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
-          val subs2 =  vars.zip(inferred).map {
-            case ((d, v), (_, t)) => tryUnify(v.apply(s1), t.apply(s1), d)
-          }
-          val s2 = Monotype.compose(s1, subs2: _*)
-          TypeEnv(env.env ++ vars.zip(inferred).map {
-            case ((Definition(name, _), v), (_, t)) => name -> env2.generalize(t.apply(s2))
-          })
+          val (_, env2) = defApply(definitions, env)
+          env2
       }
     }
 
-  def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Monotype) = {
+  private def defApply(definitions: Seq[Definition], env: TypeEnv): (Map[String, Monotype], TypeEnv) = {
+    val vars = definitions.map(_ -> newTypeVar())
+    val env2 = TypeEnv(env.env ++ vars.map {
+      case (Definition(name, _), v) => name -> TypeScheme(List.empty, v)
+    })
+    val inferred = vars.map {
+      case (Definition(name, value), v) => apply(value, env2)
+    }
+    val subs1 = inferred.map{ case (s, t) => s }
+    val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
+    val subs2 =  vars.zip(inferred).map {
+      case ((d, v), (_, t)) => tryUnify(v.apply(s1), t.apply(s1), d)
+    }
+    val s2 = Monotype.compose(s1, subs2: _*)
+    (s2, TypeEnv(env.env ++ vars.zip(inferred).map {
+      case ((Definition(name, _), v), (_, t)) => name -> env2.generalize(t.apply(s2))
+    }))
+  }
+
+  def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Monotype) = try {
     val (s: Map[String, Monotype], t) = expr match {
-      case LetExpr(assigns, body) => apply(body, apply(assigns, env))
+      case LetExpr(assigns, body) =>
+        // TODO: fails for `\list -> let x = head list in x`
+        val (s3, env3) = Definition.group(assigns).foldLeft((Map.empty[String, Monotype], env)) {
+          case ((s1, env1), definitions) =>
+            val (s2, env2) = defApply(definitions, env1)
+            (Monotype.compose(s2, s1), env2.apply(s2))
+        }
+        val (s4, t1) = apply(body, env3)
+        (Monotype.compose(s4, s3), t1)
       case LambdaExpr(Nil, expr) => apply(expr, env)
       case LambdaExpr(name :: names, expr) =>
         val v = newTypeVar()
@@ -125,5 +138,9 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     }
     expr.typeAnnotation = Some(t)
     (s, t)
+  } catch {
+    case e: Error if e.pos == NoPosition =>
+      e.pos = expr.pos
+      throw e
   }
 }
