@@ -71,8 +71,9 @@ class TypeChecker(moduleLoader: ModuleLoader) {
       case ((d, v), (_, t)) => tryUnify(v.apply(s1), t.apply(s1), d)
     }
     val s2 = Monotype.compose(s1, subs2: _*)
+    val env3 = env.apply(s1)
     (s2, TypeEnv(env.env ++ vars.zip(inferred).map {
-      case ((Definition(name, _), v), (_, t)) => name -> env2.generalize(t.apply(s2))
+      case ((Definition(name, _), v), (_, t)) => name -> env3.generalize(t.apply(s2))
     }))
   }
 
@@ -92,7 +93,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val v = newTypeVar()
         val env2 = env.updated(name, TypeScheme(List.empty, v))
         val (s1, t1) = apply(LambdaExpr(names, expr), env2)
-        (s1, Monotype.Function(v.apply(s1), t1.apply(s1)))
+        (s1, Monotype.Function(v.apply(s1), t1))
       case IfExpr(cond, ifTrue, ifFalse) =>
         val (s1, t1) = apply(cond, env)
         val (s2, t2) = apply(ifTrue, env.apply(s1))
