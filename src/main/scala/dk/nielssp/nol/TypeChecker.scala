@@ -80,7 +80,6 @@ class TypeChecker(moduleLoader: ModuleLoader) {
   def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Monotype) = try {
     val (s: Map[String, Monotype], t) = expr match {
       case LetExpr(assigns, body) =>
-        // TODO: fails for `\list -> let x = head list in x`
         val (s3, env3) = Definition.group(assigns).foldLeft((Map.empty[String, Monotype], env)) {
           case ((s1, env1), definitions) =>
             val (s2, env2) = defApply(definitions, env1)
@@ -97,10 +96,13 @@ class TypeChecker(moduleLoader: ModuleLoader) {
       case IfExpr(cond, ifTrue, ifFalse) =>
         val (s1, t1) = apply(cond, env)
         val (s2, t2) = apply(ifTrue, env.apply(s1))
-        val (s3, t3) = apply(ifFalse, env.apply(s2))
-        val s4 = tryUnify(t1.apply(s3), Monotype.Bool, cond)
-        val s5 = tryUnify(t2.apply(s4), t3.apply(s4), ifFalse)
-        (Monotype.compose(s5, s4, s3, s2, s1), t3)
+        val s3 = Monotype.compose(s2, s1)
+        val (s4, t3) = apply(ifFalse, env.apply(s3))
+        val s5 = Monotype.compose(s4, s3)
+        val s6 = tryUnify(t1.apply(s5), Monotype.Bool, cond)
+        val s7 = Monotype.compose(s6, s5)
+        val s8 = tryUnify(t2.apply(s7), t3.apply(s7), ifFalse)
+        (Monotype.compose(s8, s7), t3)
       case InfixExpr(op, left, right) =>
         val v = newTypeVar()
         val (s1, t1) = apply(op, env)
