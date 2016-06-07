@@ -37,7 +37,11 @@ class ModuleLoader {
       throw new ImportError(s"module not found: $name", NoPosition)
     }
     try {
-      val m = new Module(name, parse(lex(Source.fromFile(file).mkString)))
+      val ast = parse(lex(Source.fromFile(file).mkString))
+      val m = new Module(name, if (ast.imports.exists(_.name == "std"))
+        ast
+      else
+        Program(Import("std") +: ast.imports, ast.definitions))
       modules(name) = m
       m
     } catch {

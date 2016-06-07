@@ -82,6 +82,8 @@ let zipWith = \f xs ys ->
 
 let zip = zipWith $ \x y -> [x y]
 
+let flatten = foldr (++) []
+
 let sum = \xs -> xs $> foldl (+) 0
 let product = \xs -> xs $> foldl (*) 1
 
@@ -90,4 +92,4 @@ let `min` = \a b -> if a > b then b else a
 
 let .. = \from to -> if from > to then [] else from :: (from + 1) .. to
 
-let iota = \n -> 1 .. n
+let iota = (..) 1

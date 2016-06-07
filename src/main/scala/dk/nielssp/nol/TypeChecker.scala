@@ -49,7 +49,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
       TypeEnv(Map.empty)
     } else {
       val grouped = Definition.group(definitions)
-      println(s"decl groups: ${grouped.map(_.map(_.name).mkString(",")).mkString(";")}")
+//      println(s"decl groups: ${grouped.map(_.map(_.name).mkString(",")).mkString(";")}")
       grouped.foldLeft(env) {
         case (env, definitions) =>
           val (_, env2) = defApply(definitions, env)

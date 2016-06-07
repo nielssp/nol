@@ -5,7 +5,7 @@ import java.io.{File, IOException}
 import scala.collection.mutable
 import scala.io.Source
 
-class JsGenerator {
+class JsGenerator(moduleLoader: ModuleLoader) {
   type SymbolTable = Map[String, PartialFunction[Inlinable, String]]
 
   val none: PartialFunction[Inlinable, String] = PartialFunction.empty
@@ -43,24 +43,21 @@ class JsGenerator {
     var symbolTable: SymbolTable = scope
     val out = new StringBuilder
     symbolTable ++= program.imports.foldLeft(symbolTable) {
-      case (scope, imp@Import(name)) =>
-        scope ++ modules.getOrElseUpdate(name, {
-          val file = new File(name + ".nol")
-          try {
-            apply(parse(lex(Source.fromFile(file).mkString)), scope) match {
+      case (symbols, imp@Import(name)) =>
+        try {
+          val module = moduleLoader(name)
+          symbols ++ modules.getOrElseUpdate(name, {
+            apply(module.program, scope) match {
               case (moduleOut, module) =>
-                out ++= s"// begin module: $name\n$moduleOut// end module: $name\n"
+                out ++= s"// load module: $name\n$moduleOut\n"
                 module
             }
-          } catch {
-            case e: Error =>
-              if (e.file == null)
-                e.file = file
-              throw e
-            case e: IOException =>
-              throw new ImportError(s"module not found: $name", imp.pos)
-          }
-        }).exports
+          }).exports
+        } catch {
+          case e: ImportError =>
+            e.pos = imp.pos
+            throw e
+        }
     }
     val exports = program.definitions.map(_.name -> none).toMap
     symbolTable ++= exports

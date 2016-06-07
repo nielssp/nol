@@ -14,3 +14,7 @@ case class TypeEnv(env: Map[String, Type]) extends Types {
   def get(name: String) = env.get(name)
   def updated(name: String, t: Type) = TypeEnv(env.updated(name, t))
 }
+
+object TypeEnv {
+  val empty = TypeEnv(Map.empty)
+}
