@@ -8,6 +8,8 @@ import scala.io.Source
 class JsGenerator(moduleLoader: ModuleLoader) {
   type SymbolTable = Map[String, PartialFunction[Inlinable, String]]
 
+  val modules = mutable.HashMap.empty[String, SymbolTable]
+
   val none: PartialFunction[Inlinable, String] = PartialFunction.empty
 
   sealed abstract class Inlinable
@@ -23,9 +25,6 @@ class JsGenerator(moduleLoader: ModuleLoader) {
       case c => f"$$$c%x"
     }.mkString
 
-  case class Module(symbols: SymbolTable, exports: SymbolTable)
-
-  val modules = mutable.HashMap.empty[String, Module]
 
   def preamble(symbols: SymbolTable): String = {
     val prefix = PrefixInlinable("a")
@@ -39,20 +38,19 @@ class JsGenerator(moduleLoader: ModuleLoader) {
     }.mkString
   }
 
-  def apply(program: Program, scope: SymbolTable): (String, Module) = {
-    var symbolTable: SymbolTable = scope
+  def apply(program: Program): (String, SymbolTable) = {
     val out = new StringBuilder
-    symbolTable ++= program.imports.foldLeft(symbolTable) {
+    var symbolTable = program.imports.foldLeft(Map.empty[String, PartialFunction[Inlinable, String]]) {
       case (symbols, imp@Import(name)) =>
         try {
           val module = moduleLoader(name)
           symbols ++ modules.getOrElseUpdate(name, {
-            apply(module.program, scope) match {
+            apply(module.program) match {
               case (moduleOut, module) =>
                 out ++= s"// load module: $name\n$moduleOut\n"
                 module
             }
-          }).exports
+          })
         } catch {
           case e: ImportError =>
             e.pos = imp.pos
@@ -65,7 +63,10 @@ class JsGenerator(moduleLoader: ModuleLoader) {
       case Definition(name, value) =>
         out ++= s"var ${encode(name)} = ${apply(value, symbolTable)};\n"
     }
-    (out.toString(), Module(symbolTable, exports))
+    if (exports.contains("main")) {
+      out ++= s"main(function (str) { return process.stdout.write(str); });"
+    }
+    (out.toString(), exports)
   }
 
 

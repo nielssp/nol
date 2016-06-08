@@ -1,5 +1,7 @@
 package dk.nielssp.nol
 
+import java.io.FileWriter
+
 import scala.tools.jline.console.ConsoleReader
 
 object nolc {
@@ -53,7 +55,8 @@ object nolc {
     if (args.length < 1) {
       println("usage: nolc MODULE")
     } else {
-      println(
+      val out = new FileWriter(s"${args.head}.js")
+      out.write(
         s"""
            |function ${generator.encode("::")}(x){return function(xs){var xs = xs.slice(0); xs.unshift(x); return xs; };}
            |function ${generator.encode("==")}(a){return function(b){
@@ -74,15 +77,17 @@ object nolc {
         loader.includePath += "."
         val typeChecker = new TypeChecker(loader)
         typeChecker.modules("std") = TypeEnv(std.typeEnv)
+        generator.modules("std") = stdlib
         val module = loader.load(args.head)
-        typeChecker(module.program, TypeEnv.empty)
-        println(generator.preamble(stdlib))
-        println(generator(module.program, stdlib.asInstanceOf[generator.SymbolTable])._1)
+        typeChecker(module.program)
+        out.write(generator.preamble(stdlib))
+        out.write(generator(module.program)._1)
       } catch {
         case e: Error =>
           println(s"Error: ${e.getMessage} on line ${e.pos.line} column ${e.pos.column} in ${e.file}")
           println(e.pos.longString)
       }
+      out.close()
     }
   }
 }

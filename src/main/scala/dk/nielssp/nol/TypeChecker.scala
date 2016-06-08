@@ -17,13 +17,13 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     TypeVar(prefix + supply)
   }
 
-  def apply(program: Program, env: TypeEnv): TypeEnv = {
-    val imports = program.imports.foldLeft(env) {
-      case (scope, imp@Import(name)) =>
+  def apply(program: Program): TypeEnv = {
+    val imports = program.imports.foldLeft(TypeEnv.empty) {
+      case (env, imp@Import(name)) =>
         try {
           val module = moduleLoader(name)
           env.union(modules.getOrElseUpdate(name, {
-            apply(module.program, env)
+            apply(module.program)
           }))
         } catch {
           case e: ImportError =>
@@ -49,7 +49,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
       TypeEnv(Map.empty)
     } else {
       val grouped = Definition.group(definitions)
-//      println(s"decl groups: ${grouped.map(_.map(_.name).mkString(",")).mkString(";")}")
+      println(s"decl groups: ${grouped.map(_.map(_.name).mkString(",")).mkString(";")}")
       grouped.foldLeft(env) {
         case (env, definitions) =>
           val (_, env2) = defApply(definitions, env)

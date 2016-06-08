@@ -82,6 +82,7 @@ object noli {
     loader.includePath += "."
     val typeChecker = new TypeChecker(loader)
     val interpreter = new Interpreter(loader)
+    typeChecker.modules("std") = TypeEnv(std.typeEnv)
     interpreter.modules("std") = stdImplementation
     var types = TypeEnv(std.typeEnv)
     var scope = stdImplementation
@@ -92,8 +93,8 @@ object noli {
           System.exit(0)
         } else if (line.startsWith(":i")) {
           val name = line.drop(2).trim
-          types = types.union(typeChecker(loader(name).program, types))
-          scope = scope ++ interpreter(loader(name).program, scope)
+          types = types.union(types.union(typeChecker(loader(name).program)))
+          scope = scope ++ interpreter(loader(name).program)
         } else if (line.startsWith(":t")) {
           val tokens = lex(line.drop(2))
           val ast = parse.repl(tokens)
@@ -108,8 +109,8 @@ object noli {
             val ast = parse.repl(tokens)
             ast match {
               case p: Program =>
-                types = types.union(typeChecker(p, types))
-                scope = scope ++ interpreter(p, scope)
+                types = types.union(typeChecker(p))
+                scope = scope ++ interpreter(p)
               case e: Expr =>
                 val t = typeChecker(e, types)
                 val value = interpreter(e, scope)

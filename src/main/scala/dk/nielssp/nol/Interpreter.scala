@@ -12,13 +12,12 @@ class Interpreter(moduleLoader: ModuleLoader) {
 
   val modules = mutable.HashMap.empty[String, SymbolTable]
 
-  def apply(program: Program, scope: SymbolTable): SymbolTable = {
-    var symbolTable: SymbolTable = scope
-    symbolTable = program.imports.foldLeft(symbolTable) {
+  def apply(program: Program): SymbolTable = {
+    var symbolTable = program.imports.foldLeft(Map.empty[String, Value]) {
       case (scope, imp@Import(name)) =>
         try {
           scope ++ modules.getOrElseUpdate(name, {
-            apply(moduleLoader(name).program, scope)
+            apply(moduleLoader(name).program)
           })
         } catch {
           case e: ImportError =>
