@@ -46,7 +46,24 @@ object lex extends RegexParsers {
   def string: Parser[Token] =
     "\"" ~> rep(char) <~ "\"" ^^ (chars => StringToken(chars.mkString))
 
-  def char: Parser[Char] = ("""[^"\\]""".r | '\\' ~> ".".r) ^^ { _.head }
+  def char: Parser[String] = """[^"\\]""".r | '\\' ~> escape
+
+  def escape: Parser[String] = "[abfnrtv\\\\'\"]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[0-7]{3}".r ^^ {
+    case "a" => 7.toChar.toString
+    case "b" => '\b'.toString
+    case "f" => '\f'.toString
+    case "n" => '\n'.toString
+    case "r" => '\r'.toString
+    case "t" => '\t'.toString
+    case "v" => 11.toChar.toString
+    case "'" => '\''.toString
+    case "\"" => '"'.toString
+    case "\\" => '\\'.toString
+    case str if str.head == 'x' => Character.toChars(Integer.parseInt(str.tail, 16)).mkString
+    case str if str.head == 'u' => Character.toChars(Integer.parseInt(str.tail, 16)).mkString
+    case str if str.head == 'U' => Character.toChars(Integer.parseInt(str.tail, 16)).mkString
+    case octal => Integer.parseInt(octal, 8).toChar.toString
+  } | failure("undefined escape sequence")
 
   def apply(input: String): List[Token] = parseAll(program, input) match {
     case Success(result, _) => result
