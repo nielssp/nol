@@ -3,12 +3,14 @@ package dk.nielssp.nol
 object std extends Module("std", Program(Seq.empty, Seq.empty)) {
   override val typeEnv: Map[String, Type] = Map(
     "Type" -> Monotype.Type,
+    "Constraint" -> Monotype.Type,
     "Int" -> Monotype.Type,
     "Float" -> Monotype.Type,
     "String" -> Monotype.Type,
     "Bool" -> Monotype.Type,
     "List" -> Monotype.Function(Monotype.Type, Monotype.Type),
     "->" -> Monotype.dyadic(Monotype.Type, Monotype.Type, Monotype.Type),
+    "Num" -> Monotype.Function(Monotype.Type, Monotype.Constraint),
     "+" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Int),
     "-" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Int),
     "*" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Int),

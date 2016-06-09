@@ -63,6 +63,15 @@ case class TypeScheme(names: List[String], t: Monotype) extends Type {
   }
 }
 
+case class TypeContext(constraints: Seq[Constraint], t: Monotype) extends Types {
+  override def toString = if (constraints.isEmpty) t.toString else constraints.mkString(", ") + s" => $t"
+
+  def ftv = constraints.flatMap(_.ftv).toSet ++ t.ftv
+
+  def apply(sub: Map[String, Monotype]): TypeContext = TypeContext(constraints.map(_(sub)), t(sub))
+}
+
+
 sealed class Monotype(name: String = "") extends Type {
   override def toString = if (name.nonEmpty) name else super.toString
 
@@ -121,6 +130,7 @@ case class AppliedType(function: Monotype, parameters: Monotype*) extends Monoty
 
 object Monotype {
   val Type = new Monotype("Type")
+  val Constraint = new Monotype("Constraint")
   val Int = new Monotype("Int")
   val Float = new Monotype("Float")
   val Bool = new Monotype("Bool")
