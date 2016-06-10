@@ -32,6 +32,9 @@ object noli {
     "->" -> dyadic{
       case (a: Monotype, b: Monotype) => Monotype.Function(a, b)
     },
+    "Num" -> monadic {
+      case t: Monotype => Constraint(Monotype.Num, t)
+    },
     "+" -> dyadic {
       case (IntValue(a), IntValue(b)) => IntValue(a + b)
     },
@@ -121,7 +124,7 @@ object noli {
         }
       } catch {
         case e: Error =>
-          console.println(s"Error: ${e.getMessage} on line ${e.pos.line} column ${e.pos.column} in ${e.file}")
+          console.println(s"${e.getClass.getSimpleName}: ${e.getMessage} on line ${e.pos.line} column ${e.pos.column} in ${e.file}")
           console.println(e.pos.longString)
       }
     }

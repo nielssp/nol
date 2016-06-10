@@ -5,12 +5,6 @@ trait Types {
   def apply(s: Map[String, Monotype]): Types
 }
 
-case class Constraint(typeClass: Monotype, parameters: Monotype*) extends Types {
-  override val ftv = typeClass.ftv ++ parameters.flatMap(_.ftv).toSet
-
-  override def apply(sub: Map[String, Monotype]): Constraint = Constraint(typeClass(sub), parameters.map(_(sub)): _*)
-}
-
 case class TypeEnv(env: Map[String, Type]) extends Types {
   override def ftv = env.values.map(_.ftv).foldRight(Set.empty[String])(_.union(_))
   override def apply(s: Map[String, Monotype]): TypeEnv = TypeEnv(env.mapValues(_.apply(s)))

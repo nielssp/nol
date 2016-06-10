@@ -63,14 +63,6 @@ case class TypeScheme(names: List[String], t: Monotype) extends Type {
   }
 }
 
-case class TypeContext(constraints: Seq[Constraint], t: Monotype) extends Types {
-  override def toString = if (constraints.isEmpty) t.toString else constraints.mkString(", ") + s" => $t"
-
-  def ftv = constraints.flatMap(_.ftv).toSet ++ t.ftv
-
-  def apply(sub: Map[String, Monotype]): TypeContext = TypeContext(constraints.map(_(sub)), t(sub))
-}
-
 
 sealed class Monotype(name: String = "") extends Type {
   override def toString = if (name.nonEmpty) name else super.toString
@@ -89,6 +81,30 @@ sealed class Monotype(name: String = "") extends Type {
 
   def instantiate(newVar: String => TypeVar): Monotype = this
 }
+
+case class TypeContext(constraints: Seq[Constraint], t: Monotype) extends Monotype {
+  override def toString = if (constraints.isEmpty) t.toString else constraints.mkString(", ") + s" => $t"
+
+  override def ftv = constraints.flatMap(_.ftv).toSet ++ t.ftv
+
+  override def apply(sub: Map[String, Monotype]): TypeContext = TypeContext(constraints.map(_(sub)), t(sub))
+
+  override def unify(other: Monotype): Map[String, Monotype] = other match {
+    case TypeContext(constraints2, t2) => t.unify(t2) // ???
+    case TypeVar(name) => bind(name)
+    case _ => t.unify(other)
+  }
+}
+
+case class Constraint(typeClass: TypeClass, parameters: Monotype*) extends Value with Types {
+  override def toString = s"${typeClass.name} ${parameters.mkString(" ")}"
+
+  override val ftv = parameters.flatMap(_.ftv).toSet
+
+  override def apply(sub: Map[String, Monotype]): Constraint = Constraint(typeClass, parameters.map(_(sub)): _*)
+}
+
+case class TypeClass(name: String, parameters: Int = 1) extends Value
 
 case class TypeVar(name: String) extends Monotype(name) {
   override val ftv = Set(name)
@@ -135,6 +151,9 @@ object Monotype {
   val Float = new Monotype("Float")
   val Bool = new Monotype("Bool")
   val String = new Monotype("String")
+
+  val Num = TypeClass("Num")
+  val Eq = TypeClass("Eq")
 
   private val listTag = new Monotype("[]")
   def List(element: Monotype): Monotype = AppliedType(listTag, element)

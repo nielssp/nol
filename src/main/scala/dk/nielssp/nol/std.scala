@@ -11,6 +11,7 @@ object std extends Module("std", Program(Seq.empty, Seq.empty)) {
     "List" -> Monotype.Function(Monotype.Type, Monotype.Type),
     "->" -> Monotype.dyadic(Monotype.Type, Monotype.Type, Monotype.Type),
     "Num" -> Monotype.Function(Monotype.Type, Monotype.Constraint),
+    "Eq" -> Monotype.Function(Monotype.Type, Monotype.Constraint),
     "+" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Int),
     "-" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Int),
     "*" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Int),
@@ -19,7 +20,7 @@ object std extends Module("std", Program(Seq.empty, Seq.empty)) {
     ">" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Bool),
     "<=" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Bool),
     ">=" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Bool),
-    "==" -> TypeScheme(List("a"), Monotype.dyadic(TypeVar("a"), TypeVar("a"), Monotype.Bool)),
+    "==" -> TypeScheme(List("a"), TypeContext(Seq(Constraint(Monotype.Eq, TypeVar("a"))), Monotype.dyadic(TypeVar("a"), TypeVar("a"), Monotype.Bool))),
     "::" -> TypeScheme(
       List("a"),
       Monotype.dyadic(TypeVar("a"), Monotype.List(TypeVar("a")), Monotype.List(TypeVar("a")))
