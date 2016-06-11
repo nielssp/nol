@@ -17,8 +17,8 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     TypeVar(prefix + supply)
   }
 
-  def apply(program: Program): TypeEnv = {
-    val imports = program.imports.foldLeft(TypeEnv.empty) {
+  def apply(program: Program, env: TypeEnv = TypeEnv.empty): TypeEnv = {
+    val imports = program.imports.foldLeft(env) {
       case (env, imp@Import(name)) =>
         try {
           val module = moduleLoader(name)
@@ -127,6 +127,11 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val s3 = tryUnify(t1.apply(s2), v, head)
         val s4 = tryUnify(t2.apply(s3), Monotype.List(v.apply(s3)), head)
         (Monotype.compose(s4, s3, s2, s1), t2)
+      case TupleExpr(Nil) => (Map.empty, Monotype.Tuple())
+      case TupleExpr(elements) =>
+        val inferred = elements.map(apply(_, env))
+        val subs = inferred.map(_._1)
+        (Monotype.compose(subs.head, subs.tail: _*), Monotype.Tuple(inferred.map(_._2): _*))
       case NameNode(name) =>
         env.get(name) match {
           case Some(t) => (Map.empty, t.instantiate(newTypeVar))

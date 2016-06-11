@@ -105,6 +105,9 @@ case class PrefixExpr(op: Expr, arg: Expr) extends Expr {
 case class ListExpr(elements: Seq[Expr]) extends Expr {
   override val free = elements.flatMap(_.free).toSet
 }
+case class TupleExpr(elements: Seq[Expr]) extends Expr {
+  override val free = elements.flatMap(_.free).toSet
+}
 case class NameNode(name: String) extends Expr {
   override val free = Set(name)
 }

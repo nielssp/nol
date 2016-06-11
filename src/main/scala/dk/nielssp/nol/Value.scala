@@ -18,6 +18,9 @@ case class StringValue(value: String) extends Value {
 case class ListValue(elements: List[Value]) extends Value {
   override def toString = s"[${elements.map(_.toString).mkString(" ")}]"
 }
+case class TupleValue(elements: List[Value]) extends Value {
+  override def toString = s"(${elements.map(_.toString).mkString(", ")})"
+}
 case class LambdaValue(f: Value => Value) extends Value {
   override def toString = "#function"
 }
@@ -129,6 +132,7 @@ case class AppliedType(function: Monotype, parameters: Monotype*) extends Monoty
 
   override def toString = function.toString match {
     case "[]" if parameters.length == 1 => "[" + parameters.head.toString + "]"
+    case "()" => "(" + parameters.mkString(", ") + ")"
     case n if parameters.length == 2 && lex.parse(lex.operator, n).successful =>
       s"${parenthesize(parameters.head)} $n ${parameters.tail.head}"
     case _ => (function +: parameters).map(parenthesize).mkString(" ")
@@ -157,6 +161,9 @@ object Monotype {
 
   private val listTag = new Monotype("[]")
   def List(element: Monotype): Monotype = AppliedType(listTag, element)
+
+  private val tupleTag = new Monotype("()")
+  def Tuple(elements: Monotype*): Monotype = AppliedType(tupleTag, elements: _*)
 
   private val functionTag = new Monotype("->")
   def Function(in: Monotype, out: Monotype): Monotype = AppliedType(functionTag, in, out)

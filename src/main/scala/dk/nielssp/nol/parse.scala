@@ -58,11 +58,17 @@ object parse extends Parsers {
   }
 
   def atomic: Parser[Expr] = positioned(
-      punctuation("(") ~> (partialInfix | expr) <~ punctuation(")") |
+      punctuation("(") ~> (partialInfix | tuple) <~ punctuation(")") |
       list |
       monadicName |
       literal
   )
+
+  def tuple: Parser[Expr] = repsep(expr, punctuation(",")) ^^ {
+    case Nil => TupleExpr(List.empty)
+    case x :: Nil => x
+    case xs => TupleExpr(xs)
+  }
 
   def partialInfix: Parser[Expr] = dyadicName ~ opt(lambdaExpr) ^^ {
     case name ~ Some(expr) => LambdaExpr(Seq(" "), InfixExpr(name, NameNode(" "), expr))

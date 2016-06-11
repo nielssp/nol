@@ -12,8 +12,8 @@ class Interpreter(moduleLoader: ModuleLoader) {
 
   val modules = mutable.HashMap.empty[String, SymbolTable]
 
-  def apply(program: Program): SymbolTable = {
-    var symbolTable = program.imports.foldLeft(Map.empty[String, Value]) {
+  def apply(program: Program, scope: SymbolTable = Map.empty[String, Value]): SymbolTable = {
+    var symbolTable = program.imports.foldLeft(scope) {
       case (scope, imp@Import(name)) =>
         try {
           scope ++ modules.getOrElseUpdate(name, {
@@ -79,6 +79,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
       case _ => throw new TypeError("expected function", op.pos)
     }
     case ListExpr(elements) => ListValue(elements.map(apply(_, scope)).toList)
+    case TupleExpr(elements) => TupleValue(elements.map(apply(_, scope)).toList)
     case NameNode(name) => scope.get(name) match {
       case Some(value) => value
       case None => throw new NameError(s"undefined name: $name", expr.pos)

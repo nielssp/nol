@@ -9,6 +9,7 @@ object std extends Module("std", Program(Seq.empty, Seq.empty)) {
     "String" -> Monotype.Type,
     "Bool" -> Monotype.Type,
     "List" -> Monotype.Function(Monotype.Type, Monotype.Type),
+    "Tuple" -> Monotype.Function(Monotype.List(Monotype.Type), Monotype.Type),
     "->" -> Monotype.dyadic(Monotype.Type, Monotype.Type, Monotype.Type),
     "Num" -> Monotype.Function(Monotype.Type, Monotype.Constraint),
     "Eq" -> Monotype.Function(Monotype.Type, Monotype.Constraint),
