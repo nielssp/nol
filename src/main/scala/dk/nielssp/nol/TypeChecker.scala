@@ -132,6 +132,17 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val inferred = elements.map(apply(_, env))
         val subs = inferred.map(_._1)
         (Monotype.compose(subs.head, subs.tail: _*), Monotype.Tuple(inferred.map(_._2): _*))
+      case RecordExpr(fields) =>
+        val inferred = fields.mapValues(apply(_, env))
+        val subs = inferred.values.map(_._1).toSeq
+        (Monotype.compose(subs.head, subs.tail: _*), RecordType(inferred.mapValues(_._2), None))
+      case GetExpr(record, field) =>
+        val v1 = newTypeVar()
+        val v2 = newTypeVar()
+        val (s1, t1) = apply(record, env)
+        val t2 = RecordType(Map(field -> v1), Some(v2.name))
+        val s2 = tryUnify(t1, t2, expr)
+        (Monotype.compose(s2, s1), v1.apply(s2))
       case NameNode(name) =>
         env.get(name) match {
           case Some(t) => (Map.empty, t.instantiate(newTypeVar))

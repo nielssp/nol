@@ -21,6 +21,9 @@ case class ListValue(elements: List[Value]) extends Value {
 case class TupleValue(elements: List[Value]) extends Value {
   override def toString = s"(${elements.map(_.toString).mkString(", ")})"
 }
+case class RecordValue(fields: Map[String, Value]) extends Value {
+  override def toString = s"{${fields.map{ case (f, v) => s"$f = $v" }.mkString(", ")}}"
+}
 case class LambdaValue(f: Value => Value) extends Value {
   override def toString = "#function"
 }
@@ -120,6 +123,37 @@ case class TypeVar(name: String) extends Monotype(name) {
   override def bind(otherName: String): Map[String, Monotype] =
     if (name == otherName) Map.empty
     else Map(otherName -> this)
+}
+
+case class RecordType(fields: Map[String, Monotype], more: Option[String]) extends Monotype {
+  override val ftv = fields.values.flatMap(_.ftv).toSet ++ more.toSet
+
+  override def toString =
+    "{" + fields.map{ case (k, t) => s"$k : $t" }.mkString(", ") + "}" + more.map(n => s" ∪ $n").getOrElse("")
+
+  override def apply(sub: Map[String, Monotype]): Monotype = more match {
+    case Some(name) if sub.contains(name) => sub(name) match {
+      case RecordType(fields2, more2) =>
+        RecordType((fields ++ fields2).mapValues(_(sub)), more2)
+      case TypeVar(name2) =>
+        RecordType(fields.mapValues(_(sub)), Some(name2))
+      case t => throw new TypeError(s"could not compute union of record '$this' and type '$t'", NoPosition)
+    }
+    case _ => RecordType(fields.mapValues(_(sub)), more)
+  }
+
+  override def unify(other: Monotype): Map[String, Monotype] = other match {
+    case RecordType(_, Some(name2)) if more.isDefined => bind(name2) ++ other.bind(more.get)
+    case RecordType(fields2, more2) if fields2.keySet == fields.keySet || more.isDefined || more2.isDefined=>
+      val ext1: Map[String, Monotype] = more.map(_ -> RecordType(fields2 -- fields.keySet, None)).toMap
+      val ext2: Map[String, Monotype] = more2.map(_ -> RecordType(fields -- fields2.keySet, None)).toMap
+      fields.foldRight(ext1 ++ ext2) {
+        case ((name, t1), sub) if fields2.contains(name) =>
+          Monotype.compose(sub, t1.apply(sub).unify(fields2(name).apply(sub)))
+        case (_, sub) => sub
+      }
+    case _ => super.unify(other)
+  }
 }
 
 case class AppliedType(function: Monotype, parameters: Monotype*) extends Monotype {

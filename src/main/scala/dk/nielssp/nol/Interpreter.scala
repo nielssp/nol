@@ -80,6 +80,12 @@ class Interpreter(moduleLoader: ModuleLoader) {
     }
     case ListExpr(elements) => ListValue(elements.map(apply(_, scope)).toList)
     case TupleExpr(elements) => TupleValue(elements.map(apply(_, scope)).toList)
+    case RecordExpr(fields) => RecordValue(fields.mapValues(apply(_, scope)))
+    case GetExpr(record, field) => apply(record, scope) match {
+      case RecordValue(fields) if fields.contains(field) => fields(field)
+      case RecordValue(_) => throw new TypeError(s"undefined field: $field", record.pos)
+      case _ => throw new TypeError("expected a record", record.pos)
+    }
     case NameNode(name) => scope.get(name) match {
       case Some(value) => value
       case None => throw new NameError(s"undefined name: $name", expr.pos)

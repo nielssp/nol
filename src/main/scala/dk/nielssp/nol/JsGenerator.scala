@@ -109,6 +109,12 @@ class JsGenerator(moduleLoader: ModuleLoader) {
       }
     case ListExpr(elements) =>
       "[" + elements.map(apply(_, scope)).mkString(",") + "]"
+    case TupleExpr(elements) =>
+      "[" + elements.map(apply(_, scope)).mkString(",") + "]"
+    case RecordExpr(fields) =>
+      "{" + fields.map{ case (f, v) => apply(StringNode(f), scope) + ":" + apply(v, scope) }.mkString(",") + "}"
+    case GetExpr(record, field) =>
+      apply(record, scope) + "[" + apply(StringNode(field), scope) + "]"
     case NameNode(name) => scope.contains(name) match {
       case true => encode(name)
       case false => throw new NameError(s"undefined name: $name", expr.pos)

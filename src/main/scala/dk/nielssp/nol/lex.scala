@@ -34,7 +34,7 @@ object lex extends RegexParsers {
     case s => InfixToken(s)
   }
 
-  def punctuation: Parser[Token] = """\(|\)|\\|\[|\]|,""".r ^^ PunctuationToken
+  def punctuation: Parser[Token] = """\(|\)|\\|\[|\]|,|\{|\}""".r ^^ PunctuationToken
 
   val keywords = HashSet("let", "in", "if", "then", "else", "import")
 

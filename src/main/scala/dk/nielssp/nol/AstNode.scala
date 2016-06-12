@@ -102,11 +102,20 @@ case class InfixExpr(op: Expr, left: Expr, right: Expr) extends Expr {
 case class PrefixExpr(op: Expr, arg: Expr) extends Expr {
   override val free = op.free ++ arg.free
 }
+case class GetExpr(record: Expr, field: String) extends Expr {
+  override val free = record.free
+}
+case class SetExpr(record: Expr, assigns: RecordExpr) extends Expr {
+  override val free = record.free ++ assigns.free
+}
 case class ListExpr(elements: Seq[Expr]) extends Expr {
   override val free = elements.flatMap(_.free).toSet
 }
 case class TupleExpr(elements: Seq[Expr]) extends Expr {
   override val free = elements.flatMap(_.free).toSet
+}
+case class RecordExpr(fields: Map[String, Expr]) extends Expr {
+  override val free = fields.values.flatMap(_.free).toSet
 }
 case class NameNode(name: String) extends Expr {
   override val free = Set(name)

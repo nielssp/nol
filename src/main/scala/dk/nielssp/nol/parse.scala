@@ -52,13 +52,20 @@ object parse extends Parsers {
     case left ~ op ~ right => InfixExpr(op, left, right)
   } | prefix
 
-  def prefix: Parser[Expr] = rep1(atomic) ^^ {
+  def prefix: Parser[Expr] = rep1(recordAccess) ^^ {
     case List(atomic) => atomic
     case atomics => atomics.reduceLeft(PrefixExpr)
   }
 
+  def recordAccess: Parser[Expr] =
+    atomic ~ opt(punctuation("{") ~> monadicName <~ punctuation("}")) ^^ {
+      case atom ~ None => atom
+      case atom ~ Some(NameNode(name)) => GetExpr(atom, name)
+    }
+
   def atomic: Parser[Expr] = positioned(
       punctuation("(") ~> (partialInfix | tuple) <~ punctuation(")") |
+      record |
       list |
       monadicName |
       literal
@@ -77,6 +84,15 @@ object parse extends Parsers {
 
   def list: Parser[Expr] =
     punctuation("[") ~> rep(atomic) <~ punctuation("]") ^^ ListExpr
+
+  def record: Parser[RecordExpr] =
+    punctuation("{") ~> rep1sep(field, punctuation(",")) <~ punctuation("}") ^^ {
+      case fields => RecordExpr(fields.toMap)
+    }
+
+  def field: Parser[(String, Expr)] = monadicName ~ (punctuation("=") ~> expr) ^^ {
+    case NameNode(name) ~ value => name -> value
+  }
 
   def dyadicName: Parser[NameNode] = positioned(acceptMatch(s"a name", {
     case InfixToken(name) => NameNode(name)
