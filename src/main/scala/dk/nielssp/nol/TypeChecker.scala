@@ -133,7 +133,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val subs = inferred.map(_._1)
         (Monotype.compose(subs.head, subs.tail: _*), Monotype.Tuple(inferred.map(_._2): _*))
       case RecordExpr(fields) =>
-        val inferred = fields.mapValues(apply(_, env))
+        val inferred = fields.map { case (field, t) => field -> apply(t, env) } // Warning: Not possible to use mapValues here because of some weird lazy map view bug
         val subs = inferred.values.map(_._1).toSeq
         (Monotype.compose(subs.head, subs.tail: _*), RecordType(inferred.mapValues(_._2), None))
       case GetExpr(record, field) =>
