@@ -87,10 +87,10 @@ case class Import(name: String) extends AstNode
 sealed abstract class Expr extends AstNode {
   var typeAnnotation: Option[Type] = None
 }
-case class LetExpr(assigns: Seq[Definition], body: Expr) extends Expr {
+case class LetExpr(assigns: List[Definition], body: Expr) extends Expr {
   override val free = assigns.flatMap(_.free).toSet ++ body.free -- assigns.map(_.name)
 }
-case class LambdaExpr(names: Seq[String], expr: Expr) extends Expr {
+case class LambdaExpr(names: List[String], expr: Expr) extends Expr {
   override val free = expr.free -- names
 }
 case class IfExpr(cond: Expr, ifTrue: Expr, ifFalse: Expr) extends Expr {
@@ -108,10 +108,10 @@ case class GetExpr(record: Expr, field: String) extends Expr {
 case class SetExpr(record: Expr, assigns: RecordExpr) extends Expr {
   override val free = record.free ++ assigns.free
 }
-case class ListExpr(elements: Seq[Expr]) extends Expr {
+case class ListExpr(elements: List[Expr]) extends Expr {
   override val free = elements.flatMap(_.free).toSet
 }
-case class TupleExpr(elements: Seq[Expr]) extends Expr {
+case class TupleExpr(elements: List[Expr]) extends Expr {
   override val free = elements.flatMap(_.free).toSet
 }
 case class RecordExpr(fields: Map[String, Expr]) extends Expr {

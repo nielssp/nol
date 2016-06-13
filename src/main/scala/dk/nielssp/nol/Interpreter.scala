@@ -86,6 +86,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
       case RecordValue(_) => throw new TypeError(s"undefined field: $field", record.pos)
       case _ => throw new TypeError("expected a record", record.pos)
     }
+    case SetExpr(record, assigns) => ???
     case NameNode(name) => scope.get(name) match {
       case Some(value) => value
       case None => throw new NameError(s"undefined name: $name", expr.pos)

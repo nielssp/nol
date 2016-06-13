@@ -115,6 +115,7 @@ class JsGenerator(moduleLoader: ModuleLoader) {
       "{" + fields.map{ case (f, v) => apply(StringNode(f), scope) + ":" + apply(v, scope) }.mkString(",") + "}"
     case GetExpr(record, field) =>
       apply(record, scope) + "[" + apply(StringNode(field), scope) + "]"
+    case SetExpr(record, assigns) => ???
     case NameNode(name) => scope.contains(name) match {
       case true => encode(name)
       case false => throw new NameError(s"undefined name: $name", expr.pos)

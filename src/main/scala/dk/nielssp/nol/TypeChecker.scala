@@ -116,6 +116,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val (s2, t2) = apply(arg, env.apply(s1))
         val s3 = tryUnify(t1.apply(s2), Monotype.Function(t2, v), arg)
         (Monotype.compose(s3, s2, s1), v.apply(s3))
+
       case ListExpr(Nil) => (Map.empty, Monotype.List(newTypeVar()))
       case ListExpr(head :: Nil) =>
         val (s1, t1) = apply(head, env)
@@ -143,6 +144,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val t2 = RecordType(Map(field -> v1), Some(v2.name))
         val s2 = tryUnify(t1, t2, expr)
         (Monotype.compose(s2, s1), v1.apply(s2))
+      case SetExpr(record, assigns) => ???
       case NameNode(name) =>
         env.get(name) match {
           case Some(t) => (Map.empty, t.instantiate(newTypeVar))

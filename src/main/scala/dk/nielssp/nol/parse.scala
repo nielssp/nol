@@ -78,7 +78,7 @@ object parse extends Parsers {
   }
 
   def partialInfix: Parser[Expr] = dyadicName ~ opt(lambdaExpr) ^^ {
-    case name ~ Some(expr) => LambdaExpr(Seq(" "), InfixExpr(name, NameNode(" "), expr))
+    case name ~ Some(expr) => LambdaExpr(List(" "), InfixExpr(name, NameNode(" "), expr))
     case name ~ None => name
   }
 
