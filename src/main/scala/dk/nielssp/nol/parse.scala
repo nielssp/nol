@@ -58,9 +58,11 @@ object parse extends Parsers {
   }
 
   def recordAccess: Parser[Expr] =
-    atomic ~ opt(punctuation("{") ~> monadicName <~ punctuation("}")) ^^ {
-      case atom ~ None => atom
-      case atom ~ Some(NameNode(name)) => GetExpr(atom, name)
+    atomic ~ rep(punctuation("#") ~> monadicName) ^^ {
+      case atom ~ Nil => atom
+      case atom ~ (NameNode(name) :: names) => names.foldLeft(GetExpr(atom, name)) {
+        case (left, NameNode(name)) => GetExpr(left, name)
+      }
     }
 
   def atomic: Parser[Expr] = positioned(
