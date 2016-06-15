@@ -40,7 +40,7 @@ sealed abstract class Type extends Value with Types {
 }
 
 case class TypeScheme(names: List[String], t: Monotype) extends Type {
-  override def toString = if (names.isEmpty) t.toString else "forall " + names.mkString(", ") + s" . $t"
+  override def toString = if (names.isEmpty) t.toString else "forall " + names.mkString(", ") + s". $t"
   override def ftv = t.ftv -- names
   override def apply(s: Map[String, Monotype]): TypeScheme = TypeScheme(names, t.apply(s -- names))
 
@@ -78,6 +78,7 @@ sealed class Monotype(name: String = "") extends Type {
   def apply(sub: Map[String, Monotype]): Monotype = this
   def unify(other: Monotype): Map[String, Monotype] = other match {
     case _ if other == this => Map.empty
+    case TypeContext(constraints2, t2) => unify(t2) // ???
     case TypeVar(name) => bind(name)
     case _ => throw new TypeError(s"could not match type '$this' with type '$other'", NoPosition)
   }
