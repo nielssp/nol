@@ -43,8 +43,19 @@ object lex extends RegexParsers {
     case s => NameToken(s)
   }
 
-  def string: Parser[Token] =
-    "\"" ~> rep(char) <~ "\"" ^^ (chars => StringToken(chars.mkString))
+  def quoted[T, U](quote: Parser[U], string: Parser[T]): Parser[T] = Parser(input => quote(input) match {
+    case Success(_, next1) => string(next1) match {
+      case Success(result, next2) if next2.atEnd => Failure("unclosed string literal", input)
+      case Success(result, next2) => quote(next2) match {
+        case Success(_, next3) => Success(result, next3)
+        case e => Error("unclosed string literal", input)
+      }
+      case fail => fail
+    }
+    case _ => Failure("expected string literal", input)
+  })
+
+  def string: Parser[Token] = quoted('"', rep(char)) ^^ (chars => StringToken(chars.mkString))
 
   def char: Parser[String] = """[^"\\]""".r | '\\' ~> escape
 
