@@ -34,19 +34,25 @@ case class LazyValue(value: () => Value) extends Value {
 sealed abstract class Type extends Value with Types {
   def apply(s: Map[String, Monotype]): Type
 
-  def instantiate(newVar: String => TypeVar): Monotype
+  def instantiate(newVar: String => TypeVar): (Set[Constraint], Monotype)
 
   def prettify: Type = this
 }
 
-case class TypeScheme(names: List[String], t: Monotype) extends Type {
-  override def toString = if (names.isEmpty) t.toString else "forall " + names.mkString(", ") + s". $t"
-  override def ftv = t.ftv -- names
-  override def apply(s: Map[String, Monotype]): TypeScheme = TypeScheme(names, t.apply(s -- names))
+case class TypeScheme(names: List[String], context: Set[Constraint], t: Monotype) extends Type {
+  override def toString =
+    if (names.isEmpty) t.toString else "forall " + names.mkString(", ") + s". " +
+      (if (context.isEmpty) t.toString else context.mkString(", ") + s" => $t")
+  override def ftv = context.flatMap(_.ftv) ++ t.ftv -- names
+  override def apply(s: Map[String, Monotype]): TypeScheme = {
+    val s2 = s -- names
+    TypeScheme(names, context.map(_(s2)), t.apply(s2))
+  }
 
-  override def instantiate(newVar: String => TypeVar): Monotype = {
+  override def instantiate(newVar: String => TypeVar): (Set[Constraint], Monotype) = {
     val newNames = names.map(_ => newVar("t"))
-    t.apply(Map.empty ++ names.zip(newNames))
+    val s = names.zip(newNames).toMap
+    (context.map(_(s)), t.apply(s))
   }
 
   override def prettify: TypeScheme = {
@@ -65,7 +71,7 @@ case class TypeScheme(names: List[String], t: Monotype) extends Type {
     }
     val newNames = names.map(_ => TypeVar(nextName()))
     val s: Map[String, Monotype] = Map.empty ++ names.zip(newNames)
-    TypeScheme(newNames.map(_.name), t.apply(s))
+    TypeScheme(newNames.map(_.name), context.map(_(s)), t.apply(s))
   }
 }
 
@@ -78,7 +84,6 @@ sealed class Monotype(name: String = "") extends Type {
   def apply(sub: Map[String, Monotype]): Monotype = this
   def unify(other: Monotype): Map[String, Monotype] = other match {
     case _ if other == this => Map.empty
-    case TypeContext(constraints2, t2) => unify(t2) // ???
     case TypeVar(name) => bind(name)
     case _ => throw new TypeError(s"could not match type '$this' with type '$other'", NoPosition)
   }
@@ -86,32 +91,20 @@ sealed class Monotype(name: String = "") extends Type {
     if (ftv.contains(name)) throw new TypeError(s"occurs check failed: cannot bind '$name' to '$this'", NoPosition)
     else Map(name -> this)
 
-  def instantiate(newVar: String => TypeVar): Monotype = this
-}
-
-case class TypeContext(constraints: Seq[Constraint], t: Monotype) extends Monotype {
-  override def toString = if (constraints.isEmpty) t.toString else constraints.mkString(", ") + s" => $t"
-
-  override def ftv = constraints.flatMap(_.ftv).toSet ++ t.ftv
-
-  override def apply(sub: Map[String, Monotype]): TypeContext = TypeContext(constraints.map(_(sub)), t(sub))
-
-  override def unify(other: Monotype): Map[String, Monotype] = other match {
-    case TypeContext(constraints2, t2) => t.unify(t2) // ???
-    case TypeVar(name) => bind(name)
-    case _ => t.unify(other)
-  }
+  def instantiate(newVar: String => TypeVar): (Set[Constraint], Monotype) = (Set.empty, this)
 }
 
 case class Constraint(typeClass: TypeClass, parameters: Monotype*) extends Value with Types {
-  override def toString = s"${typeClass.name} ${parameters.mkString(" ")}"
+  override def toString = s"$typeClass ${parameters.mkString(" ")}"
 
   override val ftv = parameters.flatMap(_.ftv).toSet
 
   override def apply(sub: Map[String, Monotype]): Constraint = Constraint(typeClass, parameters.map(_(sub)): _*)
 }
 
-case class TypeClass(name: String, parameters: Int = 1) extends Value
+class TypeClass(name: String = "", parameters: Int = 1) extends Value {
+  override def toString = name
+}
 
 case class TypeVar(name: String) extends Monotype(name) {
   override val ftv = Set(name)
@@ -191,8 +184,8 @@ object Monotype {
   val Bool = new Monotype("Bool")
   val String = new Monotype("String")
 
-  val Num = TypeClass("Num")
-  val Eq = TypeClass("Eq")
+  val Num = new TypeClass("Num")
+  val Eq = new TypeClass("Eq")
 
   private val listTag = new Monotype("[]")
   def List(element: Monotype): Monotype = AppliedType(listTag, element)

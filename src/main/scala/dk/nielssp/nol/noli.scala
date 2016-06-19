@@ -104,8 +104,8 @@ object noli {
           ast match {
             case p: Program =>
             case e: Expr =>
-              val (_, t) = typeChecker(e, types)
-              console.println(s" : ${types.generalize(t).prettify}")
+              val (s, context, t) = typeChecker(e, types)
+              console.println(s" : ${types.generalize(context.map(_(s)), t(s)).prettify}")
           }
         } else {
             val tokens = lex(line)
@@ -115,9 +115,9 @@ object noli {
                 types = types.union(typeChecker(p, types))
                 scope = scope ++ interpreter(p, scope)
               case e: Expr =>
-                val (_, t) = typeChecker(e, types)
+                val (s, context, t) = typeChecker(e, types)
                 val value = interpreter(e, scope)
-                console.println(s"$value : ${types.generalize(t).prettify}")
+                console.println(s"$value : ${types.generalize(context.map(_(s)), t(s)).prettify}")
   //              val (_, t) = typeChecker(e, TypeEnv(Map.empty))
   //              console.println(s" : ${TypeEnv(Map.empty).generalize(t).prettify}")
             }

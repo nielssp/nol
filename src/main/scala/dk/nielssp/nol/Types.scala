@@ -10,7 +10,8 @@ case class TypeEnv(env: Map[String, Type]) extends Types {
   override def apply(s: Map[String, Monotype]): TypeEnv = TypeEnv(env.mapValues(_.apply(s)))
   def remove(name: String) = TypeEnv(env - name)
   def union(te: TypeEnv): TypeEnv = TypeEnv(env ++ te.env)
-  def generalize(t: Monotype): Type = TypeScheme((t.ftv -- ftv).toList, t)
+  def generalize(context: Set[Constraint], t: Monotype): Type =
+    TypeScheme((context.flatMap(_.ftv) ++ t.ftv -- ftv).toList, context, t)
   def get(name: String) = env.get(name)
   def updated(name: String, t: Type) = TypeEnv(env.updated(name, t))
 }
