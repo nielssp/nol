@@ -1,11 +1,34 @@
-
 Program ::= {Import} {Definition}
 
 Import ::= "import" string
 
 Definition ::= "let" Assign
+             | "typeclass" TypeClass
+             | "instance" Instance
 
 Assign ::= name "=" Expr
+         | name ":" TypeScheme
+
+TypeClass ::= name name {name} "{" {"let" Assign} "}"
+
+Instance ::=  name TypeAtom {TypeAtom} "{" {"let" Assign} "}"
+
+TypeScheme ::= "forall" name {"," name} "." TypeContext
+             | TypeContext
+
+TypeContext ::= Constraint {"," Constraint} "=>" Monotype
+              | Monotype
+
+Constraint ::= n_prefix TypeAtom {TypeAtom}
+
+Monotype ::= TypeApp "->" Monotype
+           | Monotype
+
+TypeApp ::= TypeAtom {TypeAtom}
+
+TypeAtom ::= "[" Monotype "]"
+           | "(" [Monotype {"," Monotype}] ")"
+           | n_prefix
 
 Expr ::= LetExpr
        | IfExpr
@@ -21,16 +44,27 @@ LambdaExpr ::= "\" name {name} "->" Expr
 InfixExpr ::= PrefixExpr n_infix LambdaExpr
             | PrefixExpr
 
-PrefixExpr ::= PrefixExpr Atom
-             | Atom
+PrefixExpr ::= PrefixExpr RecordAccess
+             | RecordAccess
+
+RecordAccess ::= RecordAccess "#" name
+               | Atom
 
 Atom ::= "(" n_infix ")"
-       | "(" Expr ")"
+       | "(" Expr {"," Expr} ")"
+       | "(" ")"
        | List
-       | name
+       | Record
+       | n_prefix
        | literal
 
 List ::= "[" {Atom} "]"
+
+Record ::= "{" Field {"," Field} "}"
+
+Field ::= name "=" Expr
+
+name ::= n_prefix | n_infix
 
 literal ::= int
           | float
