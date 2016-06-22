@@ -9,9 +9,9 @@ Definition ::= "let" Assign
 Assign ::= name "=" Expr
          | name ":" TypeScheme
 
-TypeClass ::= name name {name} "{" {"let" Assign} "}"
+TypeClass ::= name name {name} ["extends" Constraint {"," Constraint}] "{" {"let" Assign} "}"
 
-Instance ::=  name TypeAtom {TypeAtom} "{" {"let" Assign} "}"
+Instance ::=  ["forall" name {"," name} "."] [Constraint {"," Constraint} "=>"] Constraint "{" {"let" Assign} "}"
 
 TypeScheme ::= "forall" name {"," name} "." TypeContext
              | TypeContext
