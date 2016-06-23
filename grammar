@@ -29,6 +29,10 @@ TypeApp ::= TypeAtom {TypeAtom}
 TypeAtom ::= "[" Monotype "]"
            | "(" [Monotype {"," Monotype}] ")"
            | n_prefix
+           
+TypeRecord ::= "{" TypeField {"," TypeField} "}" ["∪" n_prefix]
+
+TypeField ::= name ":" Monotype
 
 Expr ::= LetExpr
        | IfExpr

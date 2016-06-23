@@ -2,6 +2,8 @@ package dk.nielssp.nol
 
 import java.io.{File, IOException}
 
+import dk.nielssp.nol.ast._
+
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
@@ -10,7 +12,7 @@ import scala.util.parsing.input.NoPosition
 class Module(val name: String, val program: Program) {
 
   def typeEnv: Map[String, Type] = program.definitions.flatMap {
-    case Definition(name, value) => value.typeAnnotation.map(name -> _)
+    case ValueDefinition(name, value) => value.typeAnnotation.map(name -> _)
   }.toMap
 }
 
@@ -21,7 +23,7 @@ object Module {
       case (name, t) =>
         val node = NameNode("undefined")
         node.typeAnnotation = Some(t)
-        Definition(name, node)
+        ValueDefinition(name, node)
     }.toSeq))
 }
 

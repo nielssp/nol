@@ -1,5 +1,7 @@
 package dk.nielssp.nol
 
+import dk.nielssp.nol.ast.{Expr, Program}
+
 import scala.tools.jline.console.ConsoleReader
 
 object noli {

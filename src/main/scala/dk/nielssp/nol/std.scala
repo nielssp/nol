@@ -1,5 +1,7 @@
 package dk.nielssp.nol
 
+import dk.nielssp.nol.ast.Program
+
 object std extends Module("std", Program(Seq.empty, Seq.empty)) {
   override val typeEnv: Map[String, Type] = Map(
     "Type" -> Monotype.Type,

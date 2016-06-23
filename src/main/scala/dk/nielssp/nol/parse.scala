@@ -1,5 +1,7 @@
 package dk.nielssp.nol
 
+import dk.nielssp.nol.ast._
+
 import scala.util.parsing.combinator.Parsers
 import scala.util.parsing.input.{NoPosition, Reader}
 
@@ -28,6 +30,57 @@ object parse extends Parsers {
     case StringToken(name) => Import(name)
   }))
 
+  def typeScheme: Parser[PolytypeExpr] =
+    opt(keyword("forall") ~> rep1sep(monadicName, punctuation(",")) <~ punctuation(".")) ~ constraints ~ typeInfix ^^ {
+      case Some(names) ~ context ~ t => PolytypeExpr(names.map(_.name).toSet, context, t)
+      case None ~ context ~ t => PolytypeExpr(Set.empty, context, t)
+  }
+
+  def constraints: Parser[Set[ConstraintExpr]] = opt(rep1sep(constraint, punctuation(",")) <~ operator("=>")) ^^ {
+    case Some(constraints) => constraints.toSet
+    case None => Set.empty
+  }
+
+  def constraint: Parser[ConstraintExpr] = monadicName ~ rep1(typeAtom) ^^ {
+    case NameNode(typeClass) ~ parameters => ConstraintExpr(typeClass, parameters)
+  }
+
+  def typeInfix: Parser[MonotypeExpr] = typePrefix ~ dyadicName ~ typeInfix ^^ {
+    case left ~ NameNode(op) ~ right => TypePrefixExpr(TypeNameNode(op), List(left, right))
+  } | typePrefix
+
+  def typePrefix: Parser[MonotypeExpr] = rep1(typeAtom) ^^ {
+    case List(atom) => atom
+    case op :: parameters => TypePrefixExpr(op, parameters)
+  }
+
+  def typeAtom: Parser[MonotypeExpr] =  positioned(
+    tupleType |
+    recordType |
+    listType |
+    monadicName ^^ (name => TypeNameNode(name.name))
+  )
+
+  def tupleType: Parser[MonotypeExpr] = punctuation("(") ~> repsep(typeInfix, punctuation(",")) <~ punctuation(")")  ^^ {
+    case Nil => TypePrefixExpr(TypeNameNode("()"), List.empty)
+    case x :: Nil => x
+    case xs => TypePrefixExpr(TypeNameNode("()"), xs)
+  }
+
+  def listType: Parser[MonotypeExpr] =
+    punctuation("[") ~> typeAtom <~ punctuation("]") ^^ {
+      case t => TypePrefixExpr(TypeNameNode("[]"), List(t))
+    }
+
+  def recordType: Parser[MonotypeExpr] =
+    (punctuation("{") ~> rep1sep(fieldType, punctuation(",")) <~ punctuation("}")) ~ opt(punctuation("∪") ~> monadicName) ^^ {
+      case fields ~ name => RecordTypeExpr(fields.toMap, name.map(_.name))
+    }
+
+  def fieldType: Parser[(String, MonotypeExpr)] = monadicName ~ (punctuation(":") ~> typeInfix) ^^ {
+    case NameNode(name) ~ value => name -> value
+  }
+
   def replExpr: Parser[Expr] = phrase(expr)
 
   def expr: Parser[Expr] = positioned(letExpr | lambdaExpr | ifExpr)
@@ -36,8 +89,10 @@ object parse extends Parsers {
     case assigns ~ body => LetExpr(assigns, body)
   }
 
-  def assign: Parser[Definition] = (monadicName | dyadicName) ~ (punctuation("=") ~> expr) ^^ {
-    case name ~ value => Definition(name.name, value)
+  def assign: Parser[Definition] =
+    (monadicName | dyadicName) ~ ((punctuation("=") ~> expr) | (punctuation(":") ~> typeScheme)) ^^ {
+    case name ~ (value: Expr) => ValueDefinition(name.name, value)
+    case name ~ (t: PolytypeExpr) => TypeDefinition(name.name, t)
   }
 
   def ifExpr: Parser[Expr] = keyword("if") ~> expr ~ (keyword("then") ~> expr) ~ (keyword("else") ~> expr) ^^ {

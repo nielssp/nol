@@ -2,6 +2,8 @@ package dk.nielssp.nol
 
 import java.io.{File, IOException}
 
+import dk.nielssp.nol.ast._
+
 import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
@@ -60,10 +62,10 @@ class TypeChecker(moduleLoader: ModuleLoader) {
   private def defApply(definitions: Seq[Definition], env: TypeEnv): (Map[String, Monotype], Set[Constraint], TypeEnv) = {
     val vars = definitions.map(_ -> newTypeVar())
     val env2 = TypeEnv(env.env ++ vars.map {
-      case (Definition(name, _), v) => name -> TypeScheme(List.empty, Set.empty, v)
+      case (ValueDefinition(name, _), v) => name -> TypeScheme(List.empty, Set.empty, v)
     })
     val inferred = vars.map {
-      case (Definition(name, value), v) => apply(value, env2)
+      case (ValueDefinition(name, value), v) => apply(value, env2)
     }
     val subs1 = inferred.map{ case (s, context, t) => s }
     val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
@@ -74,7 +76,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     val context = inferred.flatMap { case (_, context, _) => context }.toSet
     val env3 = env.apply(s1)
     (s2, context, TypeEnv(env.env ++ vars.zip(inferred).map {
-      case ((Definition(name, _), v), (_, context, t)) => name -> env3.generalize(context.map(_(s2)), t.apply(s2))
+      case ((ValueDefinition(name, _), v), (_, context, t)) => name -> env3.generalize(context.map(_(s2)), t.apply(s2))
     }))
   }
 

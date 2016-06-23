@@ -2,6 +2,8 @@ package dk.nielssp.nol
 
 import java.io.{File, IOException}
 
+import dk.nielssp.nol.ast._
+
 import scala.collection.mutable
 import scala.io.Source
 
@@ -60,8 +62,9 @@ class JsGenerator(moduleLoader: ModuleLoader) {
     val exports = program.definitions.map(_.name -> none).toMap
     symbolTable ++= exports
     Definition.sort(program.definitions).foreach {
-      case Definition(name, value) =>
+      case ValueDefinition(name, value) =>
         out ++= s"var ${encode(name)} = ${apply(value, symbolTable)};\n"
+      case _ =>
     }
     if (exports.contains("main")) {
       out ++= s"main(function (str) { return process.stdout.write(str); });"
@@ -74,8 +77,9 @@ class JsGenerator(moduleLoader: ModuleLoader) {
     case LetExpr(assigns, body) =>
       val newScope = scope ++ assigns.map(_.name -> none)
       val bindings = Definition.sort(assigns).map {
-        case Definition(name, value) =>
+        case ValueDefinition(name, value) =>
           s"var ${encode(name)} = ${apply(value, newScope)};"
+        case _ =>
       }.mkString
       s"(function(){${bindings}return ${apply(body, newScope)};})()"
     case LambdaExpr(Nil, expr) =>

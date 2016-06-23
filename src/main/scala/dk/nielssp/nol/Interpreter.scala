@@ -2,6 +2,8 @@ package dk.nielssp.nol
 
 import java.io.{File, IOException}
 
+import dk.nielssp.nol.ast._
+
 import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
@@ -26,8 +28,9 @@ class Interpreter(moduleLoader: ModuleLoader) {
         }
     }
     val exports = program.definitions.foldLeft(Map.empty[String, Value]) {
-      case (scope, Definition(name, value)) =>
+      case (scope, ValueDefinition(name, value)) =>
         scope.updated(name, LazyValue(() => apply(value, symbolTable)))
+      case (scope, _) => scope
     }
     symbolTable = symbolTable ++ exports
     exports
@@ -37,8 +40,9 @@ class Interpreter(moduleLoader: ModuleLoader) {
     case LetExpr(assigns, body) =>
       var newScope: SymbolTable = scope
       newScope = assigns.foldLeft(newScope){
-        case (scope, Definition(name, value)) =>
+        case (scope, ValueDefinition(name, value)) =>
           scope.updated(name, LazyValue(() => apply(value, newScope)))
+        case (scope, _) => scope
       }
       apply(body, newScope)
     case LambdaExpr(Nil, expr) =>
