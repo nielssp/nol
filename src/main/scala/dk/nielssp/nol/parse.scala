@@ -31,7 +31,7 @@ object parse extends Parsers {
   }))
 
   def typeScheme: Parser[PolytypeExpr] =
-    opt(keyword("forall") ~> rep1sep(monadicName, punctuation(",")) <~ punctuation(".")) ~ constraints ~ typeInfix ^^ {
+    opt(keyword("forall") ~> rep1sep(monadicName, punctuation(",")) <~ operator(".")) ~ constraints ~ typeInfix ^^ {
       case Some(names) ~ context ~ t => PolytypeExpr(names.map(_.name).toSet, context, t)
       case None ~ context ~ t => PolytypeExpr(Set.empty, context, t)
   }
@@ -82,6 +82,8 @@ object parse extends Parsers {
   }
 
   def replExpr: Parser[Expr] = phrase(expr)
+
+  def replType: Parser[PolytypeExpr] = phrase(typeScheme)
 
   def expr: Parser[Expr] = positioned(letExpr | lambdaExpr | ifExpr)
 
@@ -183,6 +185,11 @@ object parse extends Parsers {
       case Success(result, _) => result
       case NoSuccess(msg, next) => throw new SyntaxError(s"unexpected ${next.first}, $msg", next.pos)
     }
+  }
+
+  def kind(tokens: Seq[Token]): PolytypeExpr = replType(TokenReader(tokens)) match {
+    case Success(result, _) => result
+    case NoSuccess(msg, next) => throw new SyntaxError(s"unexpected ${next.first}, $msg", next.pos)
   }
 
   def apply(tokens: Seq[Token]): Program = program(TokenReader(tokens)) match {

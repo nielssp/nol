@@ -80,6 +80,29 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     }))
   }
 
+  def apply(expr: PolytypeExpr, env: TypeEnv): Type = {
+    val names = expr.names.map(_ -> Monotype.Type)
+    val env2 = TypeEnv(env.env ++ names)
+    val context = expr.constraints.map(apply(_, env2))
+    env.generalize(context, apply(expr.t, env2))
+  }
+
+  def apply(expr: ConstraintExpr, env: TypeEnv): Constraint = {
+    env.get(expr.typeClass) match {
+      case Some(t) => ???
+      case None => throw new TypeError(s"undefined type class: ${expr.typeClass}", expr.pos)
+    }
+  }
+
+  def apply(expr: MonotypeExpr, env: TypeEnv): Monotype = expr match {
+    case TypePrefixExpr(op, parameters) => ???
+    case RecordTypeExpr(fields, more) => ???
+    case TypeNameNode(name) => env.get(name) match {
+      case Some(ts: Type) => ts.instantiate(newTypeVar)._2
+      case None => throw new NameError(s"undefined name: $name", expr.pos)
+    }
+  }
+
   def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Set[Constraint], Monotype) = try {
     val (s: Map[String, Monotype], context: Set[Constraint], t) = expr match {
       case LetExpr(assigns, body) =>

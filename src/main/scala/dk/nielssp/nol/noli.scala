@@ -109,6 +109,11 @@ object noli {
               val (s, context, t) = typeChecker(e, types)
               console.println(s" : ${types.generalize(context.map(_(s)), t(s)).prettify}")
           }
+        } else if (line.startsWith(":k")) {
+          val tokens = lex(line.drop(2))
+          val ast = parse.kind(tokens)
+          val t = typeChecker(ast, types)
+          console.println(s" : ${t.prettify}")
         } else {
             val tokens = lex(line)
             val ast = parse.repl(tokens)
