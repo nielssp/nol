@@ -25,6 +25,8 @@ let append = \xs ys ->
         then head xs :: ys
         else head xs :: append (tail xs) ys
 
+let concat = foldr append []
+
 let ++ = append
 
 let reverse = \xs ->

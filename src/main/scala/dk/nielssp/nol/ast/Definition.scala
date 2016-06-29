@@ -6,12 +6,14 @@ abstract sealed class Definition extends AstNode {
   val name: String
 }
 
-case class ValueDefinition(name: String, value: Expr) extends Definition {
-  override val free = value.free
-}
+case class ValueDefinition(name: String, value: Expr) extends Definition
 
-case class TypeDefinition(name: String, t: PolytypeExpr) extends Definition {
-  override val free = t.free
+case class TypeDefinition(name: String, t: PolytypeExpr) extends Definition
+
+case class TypeClassDefinition(name: String, parameters: Seq[String], constraints: Set[ConstraintExpr], members: Seq[Definition]) extends Definition
+
+case class InstanceDefinition(names: Set[String], constraints: Set[ConstraintExpr], instance: ConstraintExpr, members: Seq[Definition]) extends Definition {
+  override val name = ???
 }
 
 object Definition {
