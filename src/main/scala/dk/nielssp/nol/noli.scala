@@ -112,8 +112,8 @@ object noli {
         } else if (line.startsWith(":k")) {
           val tokens = lex(line.drop(2))
           val ast = parse.kind(tokens)
-          val t = typeChecker(ast, types)
-          console.println(s" : ${t.prettify}")
+//          val t = typeChecker(ast, types)
+//          console.println(s" : ${t.prettify}")
         } else {
             val tokens = lex(line)
             val ast = parse.repl(tokens)

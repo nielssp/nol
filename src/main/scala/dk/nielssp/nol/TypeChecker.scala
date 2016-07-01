@@ -62,10 +62,10 @@ class TypeChecker(moduleLoader: ModuleLoader) {
   private def defApply(definitions: Seq[Definition], env: TypeEnv): (Map[String, Monotype], Set[Constraint], TypeEnv) = {
     val vars = definitions.map(_ -> newTypeVar())
     val env2 = TypeEnv(env.env ++ vars.map {
-      case (ValueDefinition(name, _), v) => name -> TypeScheme(List.empty, Set.empty, v)
+      case (Assignment(name, _), v) => name -> TypeScheme(List.empty, Set.empty, v)
     })
     val inferred = vars.map {
-      case (ValueDefinition(name, value), v) => apply(value, env2)
+      case (Assignment(name, value), v) => apply(value, env2)
     }
     val subs1 = inferred.map{ case (s, context, t) => s }
     val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
@@ -76,31 +76,8 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     val context = inferred.flatMap { case (_, context, _) => context }.toSet
     val env3 = env.apply(s1)
     (s2, context, TypeEnv(env.env ++ vars.zip(inferred).map {
-      case ((ValueDefinition(name, _), v), (_, context, t)) => name -> env3.generalize(context.map(_(s2)), t.apply(s2))
+      case ((Assignment(name, _), v), (_, context, t)) => name -> env3.generalize(context.map(_(s2)), t.apply(s2))
     }))
-  }
-
-  def apply(expr: PolytypeExpr, env: TypeEnv): Type = {
-    val names = expr.names.map(_ -> Monotype.Type)
-    val env2 = TypeEnv(env.env ++ names)
-    val context = expr.constraints.map(apply(_, env2))
-    env.generalize(context, apply(expr.t, env2))
-  }
-
-  def apply(expr: ConstraintExpr, env: TypeEnv): Constraint = {
-    env.get(expr.typeClass) match {
-      case Some(t) => ???
-      case None => throw new TypeError(s"undefined type class: ${expr.typeClass}", expr.pos)
-    }
-  }
-
-  def apply(expr: MonotypeExpr, env: TypeEnv): Monotype = expr match {
-    case TypePrefixExpr(op, parameters) => ???
-    case RecordTypeExpr(fields, more) => ???
-    case TypeNameNode(name) => env.get(name) match {
-      case Some(ts: Type) => ts.instantiate(newTypeVar)._2
-      case None => throw new NameError(s"undefined name: $name", expr.pos)
-    }
   }
 
   def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Set[Constraint], Monotype) = try {

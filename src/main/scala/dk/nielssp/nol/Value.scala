@@ -102,7 +102,7 @@ case class Constraint(typeClass: TypeClass, parameters: Monotype*) extends Value
   override def apply(sub: Map[String, Monotype]): Constraint = Constraint(typeClass, parameters.map(_(sub)): _*)
 }
 
-class TypeClass(name: String = "", parameters: Int = 1) extends Value {
+class TypeClass(name: String = "", val parameters: Int = 1) extends Value {
   override def toString = name
 }
 

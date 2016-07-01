@@ -28,7 +28,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
         }
     }
     val exports = program.definitions.foldLeft(Map.empty[String, Value]) {
-      case (scope, ValueDefinition(name, value)) =>
+      case (scope, Assignment(name, value)) =>
         scope.updated(name, LazyValue(() => apply(value, symbolTable)))
       case (scope, _) => scope
     }
@@ -40,7 +40,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
     case LetExpr(assigns, body) =>
       var newScope: SymbolTable = scope
       newScope = assigns.foldLeft(newScope){
-        case (scope, ValueDefinition(name, value)) =>
+        case (scope, Assignment(name, value)) =>
           scope.updated(name, LazyValue(() => apply(value, newScope)))
         case (scope, _) => scope
       }

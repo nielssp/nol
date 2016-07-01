@@ -12,7 +12,7 @@ import scala.util.parsing.input.NoPosition
 class Module(val name: String, val program: Program) {
 
   def typeEnv: Map[String, Type] = program.definitions.flatMap {
-    case ValueDefinition(name, value) => value.typeAnnotation.map(name -> _)
+    case Assignment(name, value) => value.typeAnnotation.map(name -> _)
   }.toMap
 }
 
@@ -23,7 +23,7 @@ object Module {
       case (name, t) =>
         val node = NameNode("undefined")
         node.typeAnnotation = Some(t)
-        ValueDefinition(name, node)
+        Assignment(name, node)
     }.toSeq))
 }
 

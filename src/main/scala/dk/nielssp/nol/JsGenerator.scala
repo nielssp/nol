@@ -62,7 +62,7 @@ class JsGenerator(moduleLoader: ModuleLoader) {
     val exports = program.definitions.map(_.name -> none).toMap
     symbolTable ++= exports
     Definition.sort(program.definitions).foreach {
-      case ValueDefinition(name, value) =>
+      case Assignment(name, value) =>
         out ++= s"var ${encode(name)} = ${apply(value, symbolTable)};\n"
       case _ =>
     }
@@ -77,7 +77,7 @@ class JsGenerator(moduleLoader: ModuleLoader) {
     case LetExpr(assigns, body) =>
       val newScope = scope ++ assigns.map(_.name -> none)
       val bindings = Definition.sort(assigns).map {
-        case ValueDefinition(name, value) =>
+        case Assignment(name, value) =>
           s"var ${encode(name)} = ${apply(value, newScope)};"
         case _ =>
       }.mkString

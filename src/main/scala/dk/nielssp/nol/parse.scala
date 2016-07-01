@@ -24,7 +24,29 @@ object parse extends Parsers {
     case imports ~ definitions => Program(imports, definitions)
   }
 
-  def definition: Parser[Definition] = positioned(keyword("let") ~> assign)
+  def definition: Parser[Definition] = positioned(assignment | typeClassDefinition | instanceDefinition)
+
+  def assignment: Parser[Assignment] = keyword("let") ~> assign
+
+  def declaration: Parser[Declaration] = keyword("let") ~> (monadicName | dyadicName) ~ (punctuation(":") ~> typeScheme) ^^ {
+    case name ~ t => Declaration(name.name, t)
+  }
+
+  def typeClassDefinition: Parser[TypeClassDefinition] =
+    keyword("typeclass") ~> monadicName ~ rep1(monadicName) ~
+      opt(keyword("extends") ~> rep1sep(constraint, punctuation(","))) ~
+      opt(punctuation("{") ~> rep(declaration) <~ punctuation("}")) ^^ {
+      case NameNode(name) ~ parameters ~ constraints ~ members =>
+        TypeClassDefinition(name, parameters.map(_.name), constraints.getOrElse(List.empty).toSet, members.getOrElse(Seq.empty))
+    }
+
+  def instanceDefinition: Parser[InstanceDefinition] =
+    keyword("instance") ~> opt(keyword("forall") ~> rep1sep(monadicName, punctuation(",")) <~ operator(".")) ~
+      constraints ~ constraint ~
+      opt(punctuation("{") ~> rep(assignment) <~ punctuation("}")) ^^ {
+      case names ~ context ~ instance ~ members =>
+        InstanceDefinition(names.getOrElse(List.empty).map(_.name).toSet, context, instance, members.getOrElse(Seq.empty))
+    }
 
   def importStmt: Parser[Import] = positioned(keyword("import") ~> acceptMatch("a string", {
     case StringToken(name) => Import(name)
@@ -91,10 +113,9 @@ object parse extends Parsers {
     case assigns ~ body => LetExpr(assigns, body)
   }
 
-  def assign: Parser[Definition] =
-    (monadicName | dyadicName) ~ ((punctuation("=") ~> expr) | (punctuation(":") ~> typeScheme)) ^^ {
-    case name ~ (value: Expr) => ValueDefinition(name.name, value)
-    case name ~ (t: PolytypeExpr) => TypeDefinition(name.name, t)
+  def assign: Parser[Assignment] =
+    (monadicName | dyadicName) ~ (punctuation("=") ~> expr) ^^ {
+    case name ~ value => Assignment(name.name, value)
   }
 
   def ifExpr: Parser[Expr] = keyword("if") ~> expr ~ (keyword("then") ~> expr) ~ (keyword("else") ~> expr) ^^ {

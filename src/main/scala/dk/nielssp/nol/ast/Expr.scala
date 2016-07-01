@@ -6,7 +6,7 @@ sealed abstract class Expr extends AstNode {
   var typeAnnotation: Option[Type] = None
 }
 
-case class LetExpr(assigns: List[Definition], body: Expr) extends Expr {
+case class LetExpr(assigns: List[Assignment], body: Expr) extends Expr {
   override val free = assigns.flatMap(_.free).toSet ++ body.free -- assigns.map(_.name)
 }
 case class LambdaExpr(names: List[String], expr: Expr) extends Expr {

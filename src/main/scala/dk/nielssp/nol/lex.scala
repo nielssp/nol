@@ -36,7 +36,7 @@ object lex extends RegexParsers {
 
   def punctuation: Parser[Token] = """\(|\)|\\|\[|\]|,|\{|\}""".r ^^ PunctuationToken
 
-  val keywords = HashSet("let", "in", "if", "then", "else", "import", "typeclass", "instance", "forall")
+  val keywords = HashSet("let", "in", "if", "then", "else", "import", "typeclass", "instance", "forall", "extends")
 
   def name: Parser[Token] = """[a-zA-Z][a-zA-Z0-9_]*""".r ^^ {
     case s if keywords.contains(s) => KeywordToken(s)
