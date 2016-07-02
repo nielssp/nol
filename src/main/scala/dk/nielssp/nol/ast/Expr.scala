@@ -36,6 +36,18 @@ case class TupleExpr(elements: List[Expr]) extends Expr {
 case class RecordExpr(fields: Map[String, Expr]) extends Expr {
   override val free = fields.values.flatMap(_.free).toSet
 }
+case class PolytypeExpr(names: Set[String], constraints: List[Expr], t: Expr) extends Expr {
+  override val free = t.free ++ constraints.flatMap(_.free) -- names
+}
+case class RecordTypeExpr(fields: Map[String, Expr], more: Option[String]) extends Expr {
+  override val free = fields.values.flatMap(_.free).toSet ++ more
+}
+case class TupleTypeExpr(elements: List[Expr]) extends Expr {
+  override val free = elements.flatMap(_.free).toSet
+}
+case class ListTypeExpr(element: Expr) extends Expr {
+  override val free = element.free
+}
 case class NameNode(name: String) extends Expr {
   override val free = Set(name)
 }

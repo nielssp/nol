@@ -80,6 +80,10 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     }))
   }
 
+  def apply(typeClass: TypeClassDefinition, env: TypeEnv): (Map[String, Monotype], Set[Constraint], Monotype) = {
+    ???
+  }
+
   def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Set[Constraint], Monotype) = try {
     val (s: Map[String, Monotype], context: Set[Constraint], t) = expr match {
       case LetExpr(assigns, body) =>
@@ -161,6 +165,17 @@ class TypeChecker(moduleLoader: ModuleLoader) {
       case FloatNode(value) =>
         val v = newTypeVar()
         (Map.empty, Set(Constraint(Monotype.Num, v)), v)
+      case PolytypeExpr(names, constraints, expr) =>
+        val vs = names.map(_ -> newTypeVar())
+        val env2 = TypeEnv(env.env ++ vs)
+        val (s1, context1, t1) = apply(expr, env2)
+        val (s5, context5) = constraints.foldLeft((s1, context1)) {
+          case ((s2, context2), e) =>
+            val (s3, context3, t3) = apply(e, env2)
+            val s4 = t3.unify(Monotype.Constraint)
+            (Monotype.compose(s4, s3, s2), context2 ++ context3)
+        }
+        (s5, context5, t1)
     }
     expr.typeAnnotation = Some(t)
     (s, context, t)

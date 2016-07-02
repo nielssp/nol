@@ -24,7 +24,7 @@ object parse extends Parsers {
     case imports ~ definitions => Program(imports, definitions)
   }
 
-  def definition: Parser[Definition] = positioned(assignment | typeClassDefinition | instanceDefinition)
+  def definition: Parser[Definition] = positioned(assignment | declaration | typeClassDefinition | instanceDefinition)
 
   def assignment: Parser[Assignment] = keyword("let") ~> assign
 
@@ -37,7 +37,7 @@ object parse extends Parsers {
       opt(keyword("extends") ~> rep1sep(constraint, punctuation(","))) ~
       opt(punctuation("{") ~> rep(declaration) <~ punctuation("}")) ^^ {
       case NameNode(name) ~ parameters ~ constraints ~ members =>
-        TypeClassDefinition(name, parameters.map(_.name), constraints.getOrElse(List.empty).toSet, members.getOrElse(Seq.empty))
+        TypeClassDefinition(name, parameters.map(_.name), constraints.getOrElse(List.empty), members.getOrElse(List.empty))
     }
 
   def instanceDefinition: Parser[InstanceDefinition] =
@@ -45,7 +45,7 @@ object parse extends Parsers {
       constraints ~ constraint ~
       opt(punctuation("{") ~> rep(assignment) <~ punctuation("}")) ^^ {
       case names ~ context ~ instance ~ members =>
-        InstanceDefinition(names.getOrElse(List.empty).map(_.name).toSet, context, instance, members.getOrElse(Seq.empty))
+        InstanceDefinition(names.getOrElse(List.empty).map(_.name).toSet, context, instance, members.getOrElse(List.empty))
     }
 
   def importStmt: Parser[Import] = positioned(keyword("import") ~> acceptMatch("a string", {
@@ -58,48 +58,48 @@ object parse extends Parsers {
       case None ~ context ~ t => PolytypeExpr(Set.empty, context, t)
   }
 
-  def constraints: Parser[Set[ConstraintExpr]] = opt(rep1sep(constraint, punctuation(",")) <~ operator("=>")) ^^ {
-    case Some(constraints) => constraints.toSet
-    case None => Set.empty
+  def constraints: Parser[List[Expr]] = opt(rep1sep(constraint, punctuation(",")) <~ operator("=>")) ^^ {
+    case Some(constraints) => constraints
+    case None => List.empty
   }
 
-  def constraint: Parser[ConstraintExpr] = monadicName ~ rep1(typeAtom) ^^ {
-    case NameNode(typeClass) ~ parameters => ConstraintExpr(typeClass, parameters)
+  def constraint: Parser[Expr] = monadicName ~ rep1(typeAtom) ^^ {
+    case typeClass ~ parameters => parameters.reduceLeft(PrefixExpr)
   }
 
-  def typeInfix: Parser[MonotypeExpr] = typePrefix ~ dyadicName ~ typeInfix ^^ {
-    case left ~ NameNode(op) ~ right => TypePrefixExpr(TypeNameNode(op), List(left, right))
+  def typeInfix: Parser[Expr] = typePrefix ~ dyadicName ~ typeInfix ^^ {
+    case left ~ op ~ right => InfixExpr(op, left, right)
   } | typePrefix
 
-  def typePrefix: Parser[MonotypeExpr] = rep1(typeAtom) ^^ {
+  def typePrefix: Parser[Expr] = rep1(typeAtom) ^^ {
     case List(atom) => atom
-    case op :: parameters => TypePrefixExpr(op, parameters)
+    case atoms => atoms.reduceLeft(PrefixExpr)
   }
 
-  def typeAtom: Parser[MonotypeExpr] =  positioned(
+  def typeAtom: Parser[Expr] =  positioned(
     tupleType |
     recordType |
     listType |
-    monadicName ^^ (name => TypeNameNode(name.name))
+    monadicName
   )
 
-  def tupleType: Parser[MonotypeExpr] = punctuation("(") ~> repsep(typeInfix, punctuation(",")) <~ punctuation(")")  ^^ {
-    case Nil => TypePrefixExpr(TypeNameNode("()"), List.empty)
+  def tupleType: Parser[Expr] = punctuation("(") ~> repsep(typeInfix, punctuation(",")) <~ punctuation(")")  ^^ {
+    case Nil => TupleTypeExpr(List.empty)
     case x :: Nil => x
-    case xs => TypePrefixExpr(TypeNameNode("()"), xs)
+    case xs => TupleTypeExpr(xs)
   }
 
-  def listType: Parser[MonotypeExpr] =
+  def listType: Parser[Expr] =
     punctuation("[") ~> typeAtom <~ punctuation("]") ^^ {
-      case t => TypePrefixExpr(TypeNameNode("[]"), List(t))
+      case t => ListTypeExpr(t)
     }
 
-  def recordType: Parser[MonotypeExpr] =
+  def recordType: Parser[Expr] =
     (punctuation("{") ~> rep1sep(fieldType, punctuation(",")) <~ punctuation("}")) ~ opt(punctuation("∪") ~> monadicName) ^^ {
       case fields ~ name => RecordTypeExpr(fields.toMap, name.map(_.name))
     }
 
-  def fieldType: Parser[(String, MonotypeExpr)] = monadicName ~ (punctuation(":") ~> typeInfix) ^^ {
+  def fieldType: Parser[(String, Expr)] = monadicName ~ (punctuation(":") ~> typeInfix) ^^ {
     case NameNode(name) ~ value => name -> value
   }
 
@@ -114,7 +114,8 @@ object parse extends Parsers {
   }
 
   def assign: Parser[Assignment] =
-    (monadicName | dyadicName) ~ (punctuation("=") ~> expr) ^^ {
+    ((monadicName | dyadicName) ~ (punctuation("=") ~> expr) |
+      keyword("type") ~> (monadicName | dyadicName) ~ (punctuation("=") ~> typeScheme)) ^^ {
     case name ~ value => Assignment(name.name, value)
   }
 

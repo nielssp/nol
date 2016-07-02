@@ -12,11 +12,11 @@ case class Assignment(name: String, value: Expr) extends Definition {
 
 case class Declaration(name: String, t: PolytypeExpr) extends Definition
 
-case class TypeClassDefinition(name: String, parameters: Seq[String], constraints: Set[ConstraintExpr], members: Seq[Declaration]) extends Definition {
+case class TypeClassDefinition(name: String, parameters: List[String], constraints: List[Expr], members: List[Declaration]) extends Definition {
   override val free = members.flatMap(_.free).toSet ++ constraints.flatMap(_.free) -- parameters
 }
 
-case class InstanceDefinition(names: Set[String], constraints: Set[ConstraintExpr], instance: ConstraintExpr, members: Seq[Assignment]) extends Definition {
+case class InstanceDefinition(names: Set[String], constraints: List[Expr], instance: Expr, members: List[Assignment]) extends Definition {
   override val free = members.flatMap(_.free).toSet ++ constraints.flatMap(_.free) -- names
   override val name = instance.toString
 }
