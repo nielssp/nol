@@ -39,7 +39,7 @@ sealed abstract class Type extends Value with Types {
   def prettify: Type = this
 }
 
-case class TypeScheme(names: List[String], context: Set[Constraint], t: Monotype) extends Type {
+case class TypeScheme(names: Set[String], context: Set[Constraint], t: Monotype) extends Type {
   override def toString =
     if (names.isEmpty) t.toString else "forall " + names.mkString(", ") + s". " +
       (if (context.isEmpty) t.toString else context.mkString(", ") + s" => $t")
@@ -64,7 +64,7 @@ case class TypeScheme(names: List[String], context: Set[Constraint], t: Monotype
         number += 1
       }
       letter += 1
-      if (names.length > 26)
+      if (names.size > 26)
         ('a' + letter).toChar.toString + number
       else
         ('a' + letter).toChar.toString

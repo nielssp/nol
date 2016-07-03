@@ -63,9 +63,9 @@ object parse extends Parsers {
     case None => List.empty
   }
 
-  def constraint: Parser[Expr] = monadicName ~ rep1(typeAtom) ^^ {
-    case typeClass ~ parameters => parameters.reduceLeft(PrefixExpr)
-  }
+  def constraint: Parser[Expr] = positioned(monadicName ~ rep1(typeAtom) ^^ {
+    case typeClass ~ parameters => (typeClass :: parameters).reduceLeft(PrefixExpr)
+  })
 
   def typeInfix: Parser[Expr] = typePrefix ~ dyadicName ~ typeInfix ^^ {
     case left ~ op ~ right => InfixExpr(op, left, right)

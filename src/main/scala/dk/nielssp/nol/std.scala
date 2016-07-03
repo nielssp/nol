@@ -23,18 +23,18 @@ object std extends Module("std", Program(Seq.empty, Seq.empty)) {
     ">" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Bool),
     "<=" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Bool),
     ">=" -> Monotype.dyadic(Monotype.Int, Monotype.Int, Monotype.Bool),
-    "==" -> TypeScheme(List("a"), Set(Constraint(Monotype.Eq, TypeVar("a"))), Monotype.dyadic(TypeVar("a"), TypeVar("a"), Monotype.Bool)),
+    "==" -> TypeScheme(Set("a"), Set(Constraint(Monotype.Eq, TypeVar("a"))), Monotype.dyadic(TypeVar("a"), TypeVar("a"), Monotype.Bool)),
     "::" -> TypeScheme(
-      List("a"), Set.empty,
+      Set("a"), Set.empty,
       Monotype.dyadic(TypeVar("a"), Monotype.List(TypeVar("a")), Monotype.List(TypeVar("a")))
     ),
     "neg" -> Monotype.Function(Monotype.Int, Monotype.Int),
     "head" -> TypeScheme(
-      List("a"), Set.empty,
+      Set("a"), Set.empty,
       Monotype.Function(Monotype.List(TypeVar("a")), TypeVar("a"))
     ),
     "tail" -> TypeScheme(
-      List("a"), Set.empty,
+      Set("a"), Set.empty,
       Monotype.Function(Monotype.List(TypeVar("a")), Monotype.List(TypeVar("a")))
     ),
     "true" -> Monotype.Bool,

@@ -62,7 +62,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
   private def defApply(definitions: Seq[Definition], env: TypeEnv): (Map[String, Monotype], Set[Constraint], TypeEnv) = {
     val vars = definitions.map(_ -> newTypeVar())
     val env2 = TypeEnv(env.env ++ vars.map {
-      case (Assignment(name, _), v) => name -> TypeScheme(List.empty, Set.empty, v)
+      case (Assignment(name, _), v) => name -> TypeScheme(Set.empty, Set.empty, v)
     })
     val inferred = vars.map {
       case (Assignment(name, value), v) => apply(value, env2)
@@ -97,7 +97,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
       case LambdaExpr(Nil, expr) => apply(expr, env)
       case LambdaExpr(name :: names, expr) =>
         val v = newTypeVar()
-        val env2 = env.updated(name, TypeScheme(List.empty, Set.empty, v))
+        val env2 = env.updated(name, TypeScheme(Set.empty, Set.empty, v))
         val (s1, context1, t1) = apply(LambdaExpr(names, expr), env2)
         (s1, context1, Monotype.Function(v.apply(s1), t1))
       case IfExpr(cond, ifTrue, ifFalse) =>
@@ -172,10 +172,37 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         val (s5, context5) = constraints.foldLeft((s1, context1)) {
           case ((s2, context2), e) =>
             val (s3, context3, t3) = apply(e, env2)
-            val s4 = t3.unify(Monotype.Constraint)
+            val s4 = tryUnify(t3, Monotype.Constraint, e)
             (Monotype.compose(s4, s3, s2), context2 ++ context3)
         }
         (s5, context5, t1)
+      case TupleTypeExpr(elements) =>
+        val (s1, context1) = elements.foldLeft((Map.empty[String, Monotype], Set.empty[Constraint])) {
+          case ((s2, context2), e) =>
+            val (s3, context3, t3) = apply(e, env)
+            val s4 = tryUnify(t3, Monotype.Type, e)
+            (Monotype.compose(s4, s3, s2), context2 ++ context3)
+        }
+        (s1, context1, Monotype.Type)
+      case ListTypeExpr(element) =>
+        val (s1, context1, t1) = apply(element, env)
+        val s2 = tryUnify(t1, Monotype.Type, element)
+        (Monotype.compose(s2, s1), context1, Monotype.Type  )
+      case RecordTypeExpr(fields, more) =>
+        val (s1, context1) = more match {
+          case Some(name) =>
+            val (s2, context2, t2) = apply(NameNode(name), env)
+            val s3 = tryUnify(t2, Monotype.Type, expr)
+            (Monotype.compose(s3, s2), context2)
+          case None => (Map.empty[String, Monotype], Set.empty[Constraint])
+        }
+        val (s4, context4) = fields.foldLeft((s1, context1)) {
+          case ((s5, context5), (_, e)) =>
+            val (s6, context6, t6) = apply(e, env)
+            val s7 = tryUnify(t6, Monotype.Type, e)
+            (Monotype.compose(s7, s6, s5), context5 ++ context6)
+        }
+        (s4, context4, Monotype.Type)
     }
     expr.typeAnnotation = Some(t)
     (s, context, t)

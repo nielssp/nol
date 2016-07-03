@@ -4,6 +4,7 @@ import java.io.{File, IOException}
 
 import dk.nielssp.nol.ast._
 
+import scala.collection.immutable.Stack
 import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
@@ -98,6 +99,34 @@ class Interpreter(moduleLoader: ModuleLoader) {
     case StringNode(value) => StringValue(value)
     case IntNode(value) => IntValue(value)
     case FloatNode(value) => FloatValue(value)
+    case PolytypeExpr(names, constraints, expr) =>
+      val scope2 = scope ++ names.map(name => name -> new TypeVar(name))
+      val context = constraints.map {
+        case constraint => apply(constraint, scope2) match {
+          case c: Constraint => c
+          case _ => throw new TypeError("expected a constraint", constraint.pos)
+        }
+      }
+      apply(expr, scope2) match {
+        case TypeScheme(names2, context2, t) => TypeScheme(names2 ++ names, context2 ++ context, t)
+        case t: Monotype => TypeScheme(names, context.toSet, t)
+        case _ => throw new TypeError("expected a type", expr.pos)
+      }
+    case TupleTypeExpr(elements) =>
+      val (names, context, types) = elements.foldLeft((Set.empty[String], Set.empty[Constraint], Stack.empty[Monotype])) {
+        case ((names, context, types), element) => apply(element, scope) match {
+          case TypeScheme(names2, context2, t) => (names ++ names2, context ++ context2, types :+ t)
+          case t: Monotype => (names, context, types :+ t)
+          case _ => throw new TypeError("expected a type", element.pos)
+        }
+      }
+      TypeScheme(names, context, Monotype.Tuple(types: _*))
+    case ListTypeExpr(element) =>
+      apply(element, scope) match {
+        case TypeScheme(names, context, t) => TypeScheme(names, context, Monotype.List(t))
+        case t: Monotype => Monotype.List(t)
+        case _ => throw new TypeError("expected a type", element.pos)
+      }
   }) match {
     case LazyValue(value) => value()
     case value => value

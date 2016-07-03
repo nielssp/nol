@@ -37,6 +37,9 @@ object noli {
     "Num" -> monadic {
       case t: Monotype => Constraint(Monotype.Num, t)
     },
+    "Eq" -> monadic {
+      case t: Monotype => Constraint(Monotype.Eq, t)
+    },
     "+" -> dyadic {
       case (IntValue(a), IntValue(b)) => IntValue(a + b)
     },
