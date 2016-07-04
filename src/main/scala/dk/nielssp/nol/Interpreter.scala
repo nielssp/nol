@@ -127,6 +127,15 @@ class Interpreter(moduleLoader: ModuleLoader) {
         case t: Monotype => Monotype.List(t)
         case _ => throw new TypeError("expected a type", element.pos)
       }
+    case RecordTypeExpr(fields, more) =>
+      val (names, context, types) = fields.foldLeft((more.toSet, Set.empty[Constraint], Map.empty[String, Monotype])) {
+        case ((names, context, types), (name, field)) => apply(field, scope) match {
+          case TypeScheme(names2, context2, t) => (names ++ names2, context ++ context2, types.updated(name, t))
+          case t: Monotype => (names, context, types.updated(name, t))
+          case _ => throw new TypeError("expected a type", field.pos)
+        }
+      }
+      TypeScheme(names, context, RecordType(types, more))
   }) match {
     case LazyValue(value) => value()
     case value => value
