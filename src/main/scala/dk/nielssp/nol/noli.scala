@@ -1,8 +1,11 @@
 package dk.nielssp.nol
 
+import java.util
+
 import dk.nielssp.nol.ast.{Expr, Program}
 
 import scala.tools.jline.console.ConsoleReader
+import scala.tools.jline.console.completer.Completer
 
 object noli {
 
@@ -94,6 +97,13 @@ object noli {
     interpreter.modules("std") = stdImplementation
     var types = TypeEnv(std.typeEnv)
     var scope = stdImplementation
+    console.addCompleter(new Completer {
+      override def complete(buffer: String, cursor: Int, candidates: util.List[CharSequence]): Int = {
+        val s = buffer.take(cursor)
+        scope.keys.filter(_.startsWith(s)).toSeq.sorted.foreach(cand => candidates.add(cand))
+        0
+      }
+    })
     while (true) {
       val line = console.readLine("> ")
       try {
