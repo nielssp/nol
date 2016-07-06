@@ -75,8 +75,9 @@ object nolc {
       try {
         loader.modules("std") = std
         loader.includePath += "."
-        val typeChecker = new TypeChecker(loader)
-        typeChecker.modules("std") = TypeEnv(std.typeEnv)
+        val interpreter = new Interpreter(loader)
+        val typeChecker = new TypeChecker(loader, interpreter)
+        typeChecker.modules("std") = SymbolTable.empty.withTypes(std.typeEnv)
         generator.modules("std") = stdlib
         val module = loader.load(args.head)
         typeChecker(module.program)

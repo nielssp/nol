@@ -67,8 +67,8 @@ object parse extends Parsers {
     case typeClass ~ parameters => (typeClass :: parameters).reduceLeft(PrefixExpr)
   })
 
-  def typeInfix: Parser[Expr] = typePrefix ~ dyadicName ~ typeInfix ^^ {
-    case left ~ op ~ right => InfixExpr(op, left, right)
+  def typeInfix: Parser[Expr] = typePrefix ~ (dyadicName ^^ (_.name) | punctuation("->")) ~ typeInfix ^^ {
+    case left ~ op ~ right => InfixExpr(NameNode(op), left, right)
   } | typePrefix
 
   def typePrefix: Parser[Expr] = rep1(typeAtom) ^^ {
@@ -189,23 +189,27 @@ object parse extends Parsers {
     case StringToken(value) => StringNode(value)
   })
 
-  def keyword(str: String): Parser[Unit] = acceptMatch(s"keyword '$str'", {
-    case KeywordToken(keyword) if keyword == str => ()
+  def keyword(str: String): Parser[String] = acceptMatch(s"keyword '$str'", {
+    case KeywordToken(keyword) if keyword == str => keyword
   })
 
-  def operator(str: String): Parser[Unit] = acceptMatch(s"operator '$str'", {
-    case InfixToken(operator) if operator == str => ()
+  def operator(str: String): Parser[String] = acceptMatch(s"operator '$str'", {
+    case InfixToken(operator) if operator == str => operator
   })
 
-  def punctuation(str: String): Parser[Unit] = acceptMatch(s"punctuation '$str'", {
-    case PunctuationToken(punctuation) if punctuation == str => ()
+  def punctuation(str: String): Parser[String] = acceptMatch(s"punctuation '$str'", {
+    case PunctuationToken(punctuation) if punctuation == str => punctuation
   })
 
   def repl(tokens: Seq[Token]): AstNode = program(TokenReader(tokens)) match {
     case Success(result, _) => result
-    case NoSuccess(_, _) => replExpr(TokenReader(tokens)) match {
+    case NoSuccess(msg1, next1) => replExpr(TokenReader(tokens)) match {
       case Success(result, _) => result
-      case NoSuccess(msg, next) => throw new SyntaxError(s"unexpected ${next.first}, $msg", next.pos)
+      case NoSuccess(msg2, next2) =>
+        if (next1.pos < next2.pos)
+          throw new SyntaxError(s"unexpected ${next2.first}, $msg2", next2.pos)
+        else
+          throw new SyntaxError(s"unexpected ${next1.first}, $msg1", next1.pos)
     }
   }
 

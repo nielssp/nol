@@ -9,98 +9,21 @@ import scala.tools.jline.console.completer.Completer
 
 object noli {
 
-  def monadic(f: PartialFunction[Value, Value]): LambdaValue = LambdaValue {
-    case param => f.lift(param) match {
-      case Some(value) => value
-      case None => throw new DomainError(s"undefined for ${param.getClass.getSimpleName}")
-    }
-  }
-
-  def dyadic(f: PartialFunction[(Value, Value), Value]): LambdaValue = LambdaValue {
-    case a => LambdaValue {
-      case b => f.lift(a, b) match {
-        case Some(value) => value
-        case None => throw new DomainError(s"undefined for (${a.getClass.getSimpleName}, ${b.getClass.getSimpleName})")
-      }
-    }
-  }
-
-  val stdImplementation = Map(
-    "Type" -> Monotype.Type,
-    "Int" -> Monotype.Int,
-    "Float" -> Monotype.Float,
-    "String" -> Monotype.String,
-    "Bool" -> Monotype.Bool,
-    "List" -> monadic{
-      case t: Monotype => Monotype.List(t)
-    },
-    "->" -> dyadic{
-      case (a: Monotype, b: Monotype) => Monotype.Function(a, b)
-    },
-    "Num" -> monadic {
-      case t: Monotype => Constraint(Monotype.Num, t)
-    },
-    "Eq" -> monadic {
-      case t: Monotype => Constraint(Monotype.Eq, t)
-    },
-    "+" -> dyadic {
-      case (IntValue(a), IntValue(b)) => IntValue(a + b)
-    },
-    "-" -> dyadic {
-      case (IntValue(a), IntValue(b)) => IntValue(a - b)
-    },
-    "*" -> dyadic {
-      case (IntValue(a), IntValue(b)) => IntValue(a * b)
-    },
-    "/" -> dyadic {
-      case (IntValue(a), IntValue(b)) => IntValue(a / b)
-    },
-    "<" -> dyadic {
-      case (IntValue(a), IntValue(b)) => BoolValue(a < b)
-    },
-    ">" -> dyadic {
-      case (IntValue(a), IntValue(b)) => BoolValue(a > b)
-    },
-    "<=" -> dyadic {
-      case (IntValue(a), IntValue(b)) => BoolValue(a <= b)
-    },
-    ">=" -> dyadic {
-      case (IntValue(a), IntValue(b)) => BoolValue(a >= b)
-    },
-    "==" -> dyadic {
-      case (a, b) => BoolValue(a == b)
-    },
-    "::" -> dyadic {
-      case (x, ListValue(xs)) => ListValue(x :: xs)
-    },
-    "neg" -> monadic {
-      case (IntValue(x)) => IntValue(-x)
-    },
-    "head" -> monadic {
-      case (ListValue(x :: xs)) => x
-    },
-    "tail" -> monadic {
-      case (ListValue(x :: xs)) => ListValue(xs)
-    },
-    "true" -> BoolValue(true),
-    "false" -> BoolValue(false)
-  )
-
   def main(args: Array[String]): Unit = {
     val console = new ConsoleReader
     val loader = new ModuleLoader
     loader.modules("std") = std
     loader.includePath += "."
-    val typeChecker = new TypeChecker(loader)
     val interpreter = new Interpreter(loader)
-    typeChecker.modules("std") = TypeEnv(std.typeEnv)
-    interpreter.modules("std") = stdImplementation
-    var types = TypeEnv(std.typeEnv)
-    var scope = stdImplementation
+    val typeChecker = new TypeChecker(loader, interpreter)
+    typeChecker.modules("std") = std.symbols
+    interpreter.modules("std") = std.symbols
+    var types = SymbolTable.empty.withTypes(std.typeEnv)
+    var scope = std.symbols
     console.addCompleter(new Completer {
       override def complete(buffer: String, cursor: Int, candidates: util.List[CharSequence]): Int = {
         val s = buffer.take(cursor)
-        scope.keys.filter(_.startsWith(s)).toSeq.sorted.foreach(cand => candidates.add(cand))
+        scope.values.keys.filter(_.startsWith(s)).toSeq.sorted.foreach(cand => candidates.add(cand))
         0
       }
     })
@@ -112,7 +35,7 @@ object noli {
         } else if (line.startsWith(":i")) {
           val name = line.drop(2).trim
           types = types.union(types.union(typeChecker(loader(name).program, types)))
-          scope = scope ++ interpreter(loader(name).program, scope)
+          scope = scope.union(interpreter(loader(name).program, scope))
         } else if (line.startsWith(":t")) {
           val tokens = lex(line.drop(2))
           val ast = parse.repl(tokens)
@@ -133,7 +56,7 @@ object noli {
             ast match {
               case p: Program =>
                 types = types.union(typeChecker(p, types))
-                scope = scope ++ interpreter(p, scope)
+                scope = scope .union(interpreter(p, scope))
               case e: Expr =>
                 val (s, context, t) = typeChecker(e, types)
                 val value = interpreter(e, scope)

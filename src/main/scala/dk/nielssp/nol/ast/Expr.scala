@@ -1,9 +1,10 @@
 package dk.nielssp.nol.ast
 
-import dk.nielssp.nol.Type
+import dk.nielssp.nol.{Type, Value}
 
 sealed abstract class Expr extends AstNode {
   var typeAnnotation: Option[Type] = None
+  var valueAnnotation: Option[Value] = None
 }
 
 case class LetExpr(assigns: List[Assignment], body: Expr) extends Expr {

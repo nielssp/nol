@@ -8,24 +8,24 @@ import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class TypeChecker(moduleLoader: ModuleLoader) {
+class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
 
   private var supply = 0
 
-  val modules = mutable.HashMap.empty[String, TypeEnv]
+  val modules = mutable.HashMap.empty[String, SymbolTable]
 
   def newTypeVar(prefix: String = "t"): TypeVar = {
     supply += 1
     TypeVar(prefix + supply)
   }
 
-  def apply(program: Program, env: TypeEnv = TypeEnv.empty): TypeEnv = {
+  def apply(program: Program, env: SymbolTable = SymbolTable.empty): (SymbolTable, SymbolTable) = {
     val imports = program.imports.foldLeft(env) {
       case (env, imp@Import(name)) =>
         try {
           val module = moduleLoader(name)
           env.union(modules.getOrElseUpdate(name, {
-            apply(module.program)
+            apply(module.program)._2
           }))
         } catch {
           case e: ImportError =>
@@ -33,8 +33,9 @@ class TypeChecker(moduleLoader: ModuleLoader) {
             throw e
         }
     }
-    val env2 = apply(program.definitions, imports)
-    TypeEnv(program.definitions.flatMap(d => env2.get(d.name).map(d.name -> _)).toMap)
+    val env2 = interpreter(program, env)
+    val env3 = apply(program.definitions, imports)
+    (env2._1.union(env3), env2._2.withTypes(program.definitions.flatMap(d => env3.getType(d.name).map(d.name -> _)).toMap))
   }
 
   def tryUnify(t1: Monotype, t2: Monotype, node: AstNode): Map[String, Monotype] =
@@ -46,9 +47,9 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         throw e
     }
 
-  def apply(definitions: Seq[Definition], env: TypeEnv): TypeEnv =
+  def apply(definitions: Seq[Definition], env: SymbolTable): SymbolTable =
     if (definitions.isEmpty) {
-      TypeEnv(Map.empty)
+      SymbolTable.empty
     } else {
       val grouped = Definition.group(definitions)
       println(s"decl groups: ${grouped.map(_.map(_.name).mkString(",")).mkString(";")}")
@@ -59,13 +60,18 @@ class TypeChecker(moduleLoader: ModuleLoader) {
       }
     }
 
-  private def defApply(definitions: Seq[Definition], env: TypeEnv): (Map[String, Monotype], Set[Constraint], TypeEnv) = {
-    val vars = definitions.map(_ -> newTypeVar())
-    val env2 = TypeEnv(env.env ++ vars.map {
-      case (Assignment(name, _), v) => name -> TypeScheme(Set.empty, Set.empty, v)
+  private def defApply(definitions: Seq[Definition], env: SymbolTable): (Map[String, Monotype], Set[Constraint], SymbolTable) = {
+    val definitions2 = definitions ++ definitions.flatMap {
+      case TypeClassDefinition(name, parameters, _, members) =>
+        members
+      case _ => Seq.empty
+    }
+    val vars = definitions2.map(_ -> newTypeVar())
+    val env2 = env.withTypes(env.types ++ vars.map {
+      case (definition, v) => definition.name -> TypeScheme(Set.empty, Set.empty, v)
     })
     val inferred = vars.map {
-      case (Assignment(name, value), v) => apply(value, env2)
+      case (definition, _) => apply(definition, env2)
     }
     val subs1 = inferred.map{ case (s, context, t) => s }
     val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
@@ -75,16 +81,33 @@ class TypeChecker(moduleLoader: ModuleLoader) {
     val s2 = Monotype.compose(s1, subs2: _*)
     val context = inferred.flatMap { case (_, context, _) => context }.toSet
     val env3 = env.apply(s1)
-    (s2, context, TypeEnv(env.env ++ vars.zip(inferred).map {
-      case ((Assignment(name, _), v), (_, context, t)) => name -> env3.generalize(context.map(_(s2)), t.apply(s2))
+    (s2, context, env.withTypes(env.types ++ vars.zip(inferred).map {
+      case ((definition, v), (_, context, t)) => definition.name -> env3.generalize(context.map(_(s2)), t.apply(s2))
     }))
   }
 
-  def apply(typeClass: TypeClassDefinition, env: TypeEnv): (Map[String, Monotype], Set[Constraint], Monotype) = {
-    ???
+  def apply(definition: Definition, env: SymbolTable): (Map[String, Monotype], Set[Constraint], Monotype) = definition match {
+    case Assignment(_, value) => apply(value, env)
+    case Declaration(_, t) =>
+      println(t.valueAnnotation)
+      ???
+    case TypeClassDefinition(_, parameters, constraints, members) =>
+      val vs = parameters.map(_ -> newTypeVar())
+      val env2 = env.withTypes(env.types ++ vs)
+      val (s1, context1) = constraints.foldLeft((Map.empty[String, Monotype], Set.empty[Constraint])) {
+        case ((s2, context2), e) =>
+          val (s3, context3, t3) = apply(e, env2)
+          val s4 = tryUnify(t3, Monotype.Constraint, e)
+          (Monotype.compose(s4, s3, s2), context2 ++ context3)
+      }
+      (s1, context1, vs.foldRight(Monotype.Constraint) {
+        case ((_, v), t) => Monotype.Function(v, t)
+      })
+    case InstanceDefinition(names, constraints, instance, members) =>
+      ???
   }
 
-  def apply(expr: Expr, env: TypeEnv): (Map[String, Monotype], Set[Constraint], Monotype) = try {
+  def apply(expr: Expr, env: SymbolTable): (Map[String, Monotype], Set[Constraint], Monotype) = try {
     val (s: Map[String, Monotype], context: Set[Constraint], t) = expr match {
       case LetExpr(assigns, body) =>
         val (s3, context3, env3) = Definition.group(assigns).foldLeft((Map.empty[String, Monotype], Set.empty[Constraint], env)) {
@@ -152,7 +175,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         (Monotype.compose(s2, s1), context1, v1.apply(s2))
       case SetExpr(record, assigns) => ???
       case NameNode(name) =>
-        env.get(name) match {
+        env.getType(name) match {
           case Some(ts) =>
             val (context, t) = ts.instantiate(newTypeVar)
             (Map.empty, context, t)
@@ -167,7 +190,7 @@ class TypeChecker(moduleLoader: ModuleLoader) {
         (Map.empty, Set(Constraint(Monotype.Num, v)), v)
       case PolytypeExpr(names, constraints, expr) =>
         val vs = names.map(_ -> newTypeVar())
-        val env2 = TypeEnv(env.env ++ vs)
+        val env2 = env.withTypes(env.types ++ vs)
         val (s1, context1, t1) = apply(expr, env2)
         val (s5, context5) = constraints.foldLeft((s1, context1)) {
           case ((s2, context2), e) =>
@@ -175,7 +198,8 @@ class TypeChecker(moduleLoader: ModuleLoader) {
             val s4 = tryUnify(t3, Monotype.Constraint, e)
             (Monotype.compose(s4, s3, s2), context2 ++ context3)
         }
-        (s5, context5, t1)
+        val s6 = tryUnify(t1, Monotype.Type, expr)
+        (Monotype.compose(s6, s5), context5, t1)
       case TupleTypeExpr(elements) =>
         val (s1, context1) = elements.foldLeft((Map.empty[String, Monotype], Set.empty[Constraint])) {
           case ((s2, context2), e) =>

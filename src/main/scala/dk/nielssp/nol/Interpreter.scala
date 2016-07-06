@@ -11,30 +11,28 @@ import scala.util.parsing.input.NoPosition
 
 class Interpreter(moduleLoader: ModuleLoader) {
 
-  type SymbolTable = Map[String, Value]
-
   val modules = mutable.HashMap.empty[String, SymbolTable]
 
-  def apply(program: Program, scope: SymbolTable = Map.empty[String, Value]): SymbolTable = {
+  def apply(program: Program, scope: SymbolTable = SymbolTable.empty): (SymbolTable, SymbolTable) = {
     var symbolTable = program.imports.foldLeft(scope) {
       case (scope, imp@Import(name)) =>
         try {
-          scope ++ modules.getOrElseUpdate(name, {
-            apply(moduleLoader(name).program)
-          })
+          scope.union(modules.getOrElseUpdate(name, {
+            apply(moduleLoader(name).program)._2
+          }))
         } catch {
           case e: ImportError =>
             e.pos = imp.pos
             throw e
         }
     }
-    val exports = program.definitions.foldLeft(Map.empty[String, Value]) {
+    val exports = program.definitions.foldLeft(SymbolTable.empty) {
       case (scope, Assignment(name, value)) =>
         scope.updated(name, LazyValue(() => apply(value, symbolTable)))
       case (scope, _) => scope
     }
-    symbolTable = symbolTable ++ exports
-    exports
+    symbolTable = symbolTable.union(exports)
+    (symbolTable, exports)
   }
 
   def apply(expr: Expr, scope: SymbolTable): Value = (expr match {
@@ -100,7 +98,7 @@ class Interpreter(moduleLoader: ModuleLoader) {
     case IntNode(value) => IntValue(value)
     case FloatNode(value) => FloatValue(value)
     case PolytypeExpr(names, constraints, expr) =>
-      val scope2 = scope ++ names.map(name => name -> new TypeVar(name))
+      val scope2 = scope.withValues(scope.values ++ names.map(name => name -> new TypeVar(name)))
       val context = constraints.map {
         case constraint => apply(constraint, scope2) match {
           case c: Constraint => c
@@ -137,7 +135,11 @@ class Interpreter(moduleLoader: ModuleLoader) {
       }
       TypeScheme(names, context, RecordType(types, more))
   }) match {
-    case LazyValue(value) => value()
-    case value => value
+    case LazyValue(value) =>
+      expr.valueAnnotation = Some(value())
+      expr.valueAnnotation.get
+    case value =>
+      expr.valueAnnotation = Some(value)
+      expr.valueAnnotation.get
   }
 }
