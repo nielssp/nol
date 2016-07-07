@@ -35,7 +35,11 @@ class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
     }
     val env2 = interpreter(program, env)
     val env3 = apply(program.definitions, imports)
-    (env2._1.union(env3), env2._2.withTypes(program.definitions.flatMap(d => env3.getType(d.name).map(d.name -> _)).toMap))
+    val definitions2 = program.definitions ++ program.definitions.flatMap {
+      case TypeClassDefinition(_, _, _, members) => members
+      case _ => Seq.empty
+    }
+    (env2._1.union(env3), env2._2.withTypes(definitions2.flatMap(d => env3.getType(d.name).map(d.name -> _)).toMap))
   }
 
   def tryUnify(t1: Monotype, t2: Monotype, node: AstNode): Map[String, Monotype] =
@@ -61,36 +65,37 @@ class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
     }
 
   private def defApply(definitions: Seq[Definition], env: SymbolTable): (Map[String, Monotype], Set[Constraint], SymbolTable) = {
-    val definitions2 = definitions ++ definitions.flatMap {
+    val definitions2 = definitions.map(_ -> SymbolTable.empty) ++ definitions.flatMap {
       case TypeClassDefinition(name, parameters, _, members) =>
-        members
+        members.map(_ -> SymbolTable.empty.withTypes(parameters.map(_ -> newTypeVar()).toMap))
       case _ => Seq.empty
     }
     val vars = definitions2.map(_ -> newTypeVar())
     val env2 = env.withTypes(env.types ++ vars.map {
-      case (definition, v) => definition.name -> TypeScheme(Set.empty, Set.empty, v)
+      case ((definition, _), v) => definition.name -> TypeScheme(Set.empty, Set.empty, v)
     })
     val inferred = vars.map {
-      case (definition, _) => apply(definition, env2)
+      case ((definition, ext), _) => apply(definition, env2.union(ext))
     }
     val subs1 = inferred.map{ case (s, context, t) => s }
     val s1 = Monotype.compose(subs1.head, subs1.tail: _*)
     val subs2 =  vars.zip(inferred).map {
-      case ((d, v), (_, _, t)) => tryUnify(v.apply(s1), t.apply(s1), d)
+      case (((d, _), v), (_, _, t)) => tryUnify(v.apply(s1), t.apply(s1), d)
     }
     val s2 = Monotype.compose(s1, subs2: _*)
     val context = inferred.flatMap { case (_, context, _) => context }.toSet
     val env3 = env.apply(s1)
     (s2, context, env.withTypes(env.types ++ vars.zip(inferred).map {
-      case ((definition, v), (_, context, t)) => definition.name -> env3.generalize(context.map(_(s2)), t.apply(s2))
+      case (((definition, ext), v), (_, context, t)) => definition.name -> env3.union(ext).generalize(context.map(_(s2)), t.apply(s2))
     }))
   }
 
   def apply(definition: Definition, env: SymbolTable): (Map[String, Monotype], Set[Constraint], Monotype) = definition match {
     case Assignment(_, value) => apply(value, env)
     case Declaration(_, t) =>
-      println(t.valueAnnotation)
-      ???
+      val (s1, context1, t1) = apply(t, env)
+      val s2 = tryUnify(t1, Monotype.Type, t)
+      (Monotype.compose(s2, s1), context1, t1)
     case TypeClassDefinition(_, parameters, constraints, members) =>
       val vs = parameters.map(_ -> newTypeVar())
       val env2 = env.withTypes(env.types ++ vs)
