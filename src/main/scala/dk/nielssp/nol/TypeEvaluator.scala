@@ -7,6 +7,11 @@ import scala.util.parsing.input.NoPosition
 
 class TypeEvaluator {
 
+  def apply(definitions: Seq[Definition], env: SymbolTable): (Seq[Definition], SymbolTable) = {
+    val definitionMap = definitions.groupBy(_.name)
+    ???
+  }
+
   def apply(definition: Definition, env: SymbolTable): SymbolTable = definition match {
     case Assignment(name, value) => env.updated(name, apply(value, env))
     case Declaration(name, t) => apply(t, env) match {

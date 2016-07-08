@@ -1,5 +1,7 @@
 package dk.nielssp.nol.ast
 
+import dk.nielssp.nol.Type
+
 import scala.collection.mutable
 
 abstract sealed class Definition extends AstNode {
@@ -10,7 +12,9 @@ case class Assignment(name: String, value: Expr) extends Definition {
   override val free = value.free - name
 }
 
-case class Declaration(name: String, t: PolytypeExpr) extends Definition
+case class Declaration(name: String, t: PolytypeExpr) extends Definition {
+  override val free = t.free - name
+}
 
 case class TypeClassDefinition(name: String, parameters: List[String], constraints: List[Expr], members: List[Declaration]) extends Definition {
   override val free = members.flatMap(_.free).toSet ++ constraints.flatMap(_.free) -- parameters
@@ -18,8 +22,16 @@ case class TypeClassDefinition(name: String, parameters: List[String], constrain
 
 case class InstanceDefinition(names: Set[String], constraints: List[Expr], instance: Expr, members: List[Assignment]) extends Definition {
   override val free = members.flatMap(_.free).toSet ++ constraints.flatMap(_.free) -- names
-  override val name = instance.toString
+  override val name = ""
 }
+
+abstract sealed class TypedDefinition extends Definition
+
+case class TypedAssignment(name: String, value: Expr, t: Type) extends TypedDefinition {
+  override val free = value.free - name
+}
+
+case class TypedDeclaration(name: String, t: Type) extends TypedDefinition
 
 object Definition {
   def sort(definitions: Seq[Definition]): Seq[Definition] =
