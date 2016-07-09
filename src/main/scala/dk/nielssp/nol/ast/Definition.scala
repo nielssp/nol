@@ -1,6 +1,6 @@
 package dk.nielssp.nol.ast
 
-import dk.nielssp.nol.Type
+import dk.nielssp.nol.{Constraint, Type}
 
 import scala.collection.mutable
 
@@ -32,6 +32,13 @@ case class TypedAssignment(name: String, value: Expr, t: Type) extends TypedDefi
 }
 
 case class TypedDeclaration(name: String, t: Type) extends TypedDefinition
+
+case class TypedTypeClassDefinition(name: String, parameters: List[String], constraint: List[Constraint], members: List[TypedDeclaration]) extends TypedDefinition
+
+case class TypedInstanceDefinition(names: Set[String], constraints: List[Constraint], instance: Constraint, members: List[TypedAssignment]) extends TypedDefinition {
+  override val free = members.flatMap(_.free).toSet
+  override val name = ""
+}
 
 object Definition {
   def sort(definitions: Seq[Definition]): Seq[Definition] =

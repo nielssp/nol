@@ -7,8 +7,16 @@ import scala.util.parsing.input.NoPosition
 
 class TypeEvaluator {
 
-  def apply(definitions: Seq[Definition], env: SymbolTable): (Seq[Definition], SymbolTable) = {
+  def apply(program: Program): TypedProgram = {
+    ???
+  }
+
+  def apply(definitions: Seq[Definition], env: SymbolTable): (Seq[TypedDefinition], SymbolTable) = {
     val definitionMap = definitions.groupBy(_.name)
+    definitionMap.foldLeft((Seq.empty[Definition], env)) {
+      case ((result, env2), (name, group)) =>
+        (result, env2)
+    }
     ???
   }
 
@@ -21,7 +29,13 @@ class TypeEvaluator {
     case TypeClassDefinition(name, parameters, constraints, members) =>
       new TypeClass(name, parameters.length)
       env
-    case InstanceDefinition(names, constraints, instance, members) => env
+    case InstanceDefinition(names, constraints, instance, members) =>
+      apply(instance, env) match {
+        case c: Constraint => env.updated(c, members.map {
+          case Assignment(name, expr) => name -> apply(expr, env)
+        }.toMap)
+        case _ => throw new TypeError("expected constraint", instance.pos)
+      }
   }
 
   def apply(expr: Expr, env: SymbolTable): Value = expr match {
