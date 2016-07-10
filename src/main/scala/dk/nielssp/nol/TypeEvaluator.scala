@@ -13,9 +13,19 @@ class TypeEvaluator {
 
   def apply(definitions: Seq[Definition], env: SymbolTable): (Seq[TypedDefinition], SymbolTable) = {
     val definitionMap = definitions.groupBy(_.name)
-    definitionMap.foldLeft((Seq.empty[Definition], env)) {
+    definitionMap.foldLeft((List.empty[(Definition, Option[Expr])], env)) {
+      case ((result, env2), (name, Seq(definition))) =>
+        ((definition, None) :: result, env2)
       case ((result, env2), (name, group)) =>
-        (result, env2)
+        group.foldLeft((Option.empty[Declaration], Option.empty[Assignment])) {
+          case ((decl, None), a: Assignment) => (decl, Some(a))
+          case ((None, a), decl: Declaration) => (Some(decl), a)
+          case ((Some(_), _), decl: Declaration) => throw new TypeError(s"multiple declarations for name '$name'", decl.pos)
+          case (_, d) => throw new TypeError(s"multiple definitions for name '$name'", d.pos)
+        } match {
+          case (decl, Some(a)) => ((a, decl.map(_.t)) :: result, env2)
+          case _ => throw new TypeError(s"missing definition for name '$name'", group.head.pos)
+        }
     }
     ???
   }
