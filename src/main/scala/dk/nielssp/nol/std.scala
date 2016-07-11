@@ -2,7 +2,7 @@ package dk.nielssp.nol
 
 import dk.nielssp.nol.ast.Program
 
-object std extends Module("std", Program(Seq.empty, Seq.empty)) {
+object std extends Module("std", Program(Seq.empty, Seq.empty), SymbolTable.empty, SymbolTable.empty) {
 
   def monadic(f: PartialFunction[Value, Value]): LambdaValue = LambdaValue {
     case param => f.lift(param) match {
@@ -20,7 +20,7 @@ object std extends Module("std", Program(Seq.empty, Seq.empty)) {
     }
   }
 
-  val symbols = SymbolTable(
+  override val external = SymbolTable(
     Map(
       "Type" -> Monotype.Type,
       "Int" -> Monotype.Int,
@@ -120,6 +120,4 @@ object std extends Module("std", Program(Seq.empty, Seq.empty)) {
     ),
     Map()
   )
-
-  override val typeEnv: Map[String, Type] = symbols.types
 }

@@ -15,11 +15,11 @@ object noli {
     loader.modules("std") = std
     loader.includePath += "."
     val interpreter = new Interpreter(loader)
-    val typeChecker = new TypeChecker(loader, interpreter)
-    typeChecker.modules("std") = std.symbols
-    interpreter.modules("std") = std.symbols
-    var types = SymbolTable.empty.withTypes(std.typeEnv)
-    var scope = std.symbols
+    val typeChecker = new TypeChecker(loader)
+    typeChecker.modules("std") = std.external
+    interpreter.modules("std") = std.external
+    var types = std.external
+    var scope = std.external
     console.addCompleter(new Completer {
       override def complete(buffer: String, cursor: Int, candidates: util.List[CharSequence]): Int = {
         val s = buffer.take(cursor)

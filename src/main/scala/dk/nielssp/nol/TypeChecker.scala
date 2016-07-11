@@ -8,7 +8,7 @@ import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
+class TypeChecker(moduleLoader: ModuleLoader) {
 
   private var supply = 0
 
@@ -17,6 +17,11 @@ class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
   def newTypeVar(prefix: String = "t"): TypeVar = {
     supply += 1
     TypeVar(prefix + supply)
+  }
+
+  def apply(module: Module): Module = {
+    val (internal, external) = apply(module.program)
+    module.withInternal(internal).withExternal(external)
   }
 
   def apply(program: Program, env: SymbolTable = SymbolTable.empty): (SymbolTable, SymbolTable) = {
@@ -33,13 +38,12 @@ class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
             throw e
         }
     }
-    val env2 = interpreter(program, env)
-    val env3 = apply(program.definitions, imports)
+    val env2 = apply(program.definitions, imports)
     val definitions2 = program.definitions ++ program.definitions.flatMap {
       case TypeClassDefinition(_, _, _, members) => members
       case _ => Seq.empty
     }
-    (env2._1.union(env3), env2._2.withTypes(definitions2.flatMap(d => env3.getType(d.name).map(d.name -> _)).toMap))
+    (env2, env.withTypes(definitions2.flatMap(d => env2.getType(d.name).map(d.name -> _)).toMap))
   }
 
   def tryUnify(t1: Monotype, t2: Monotype, node: AstNode): Map[String, Monotype] =
@@ -95,7 +99,7 @@ class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
     case Declaration(_, t) =>
       val (s1, context1, t1) = apply(t, env)
       val s2 = tryUnify(t1, Monotype.Type, t)
-      (Monotype.compose(s2, s1), context1, t1)
+      (Monotype.compose(s2, s1), context1, newTypeVar())
     case TypeClassDefinition(_, parameters, constraints, members) =>
       val vs = parameters.map(_ -> newTypeVar())
       val env2 = env.withTypes(env.types ++ vs)
@@ -105,11 +109,29 @@ class TypeChecker(moduleLoader: ModuleLoader, interpreter: Interpreter) {
           val s4 = tryUnify(t3, Monotype.Constraint, e)
           (Monotype.compose(s4, s3, s2), context2 ++ context3)
       }
-      (s1, context1, vs.foldRight(Monotype.Constraint) {
+      val (s5, context5) = members.foldLeft((s1, context1)) {
+        case ((s6, context6), member) =>
+          val (s7, context7, _) = apply(member, env2)
+          (Monotype.compose(s7, s6), context6 ++ context7)
+      }
+      (s5, context5, vs.foldRight(Monotype.Constraint) {
         case ((_, v), t) => Monotype.Function(v, t)
       })
     case InstanceDefinition(names, constraints, instance, members) =>
-      ???
+      val (s1, context1, t1) = apply(instance, env)
+      val s2 = tryUnify(t1, Monotype.Constraint, instance)
+      val (s3, context3) = constraints.foldLeft((Monotype.compose(s2, s1), context1)) {
+        case ((s4, context4), e) =>
+          val (s5, context5, t5) = apply(e, env)
+          val s6 = tryUnify(t5, Monotype.Constraint, e)
+          (Monotype.compose(s6, s5, s4), context5 ++ context4)
+      }
+      val (s7, context7) = members.foldLeft((s3, context3)) {
+        case ((s8, context8), member) =>
+          val (s9, context9, _) = apply(member, env)
+          (Monotype.compose(s9, s8), context9 ++ context8)
+      }
+      (s7, context7, t1)
   }
 
   def apply(expr: Expr, env: SymbolTable): (Map[String, Monotype], Set[Constraint], Monotype) = try {

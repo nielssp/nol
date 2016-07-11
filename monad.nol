@@ -1,0 +1,20 @@
+import "util"
+import "list"
+
+typeclass Applicative f {
+  let pure : forall a. a -> f a
+  let <*> : forall a, b. f (a -> b) -> f a -> f b 
+}
+
+typeclass Monad m extends Applicative m {
+  let return : forall a. a -> f a
+  let >>= : forall a, b. m a -> (a -> m b) -> m b
+}
+
+//let listMonad =
+//    { return = \x -> [x]
+//    , bind = \xs f -> concat $ map f xs
+//    }
+//
+//let return = \m x -> m#return x
+//let bind = \m x f -> m#bind x f

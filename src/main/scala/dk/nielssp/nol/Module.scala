@@ -9,28 +9,18 @@ import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class Module(val name: String, val program: Program) {
-
-  def typeEnv: Map[String, Type] = program.definitions.flatMap {
-    case Assignment(name, value) => value.typeAnnotation.map(name -> _)
-  }.toMap
-}
-
-object Module {
-
-  def fromTypeEnv(name: String, typeEnv: Map[String, Type]): Module =
-    new Module(name, Program(Seq.empty, typeEnv.map {
-      case (name, t) =>
-        val node = NameNode("undefined")
-        node.typeAnnotation = Some(t)
-        Assignment(name, node)
-    }.toSeq))
+class Module(val name: String, val program: Program, val internal: SymbolTable, val external: SymbolTable) {
+  def withProgram(program: Program): Module = new Module(name, program, internal, external)
+  def withInternal(internal: SymbolTable): Module = new Module(name, program, internal, external)
+  def withExternal(external: SymbolTable): Module = new Module(name, program, internal, external)
 }
 
 class ModuleLoader {
   val includePath = ListBuffer.empty[String]
 
   val modules = mutable.HashMap.empty[String, Module]
+
+  val phases = ListBuffer.empty[Module => Module]
 
   def apply(name: String): Module = modules.getOrElse(name, { load(name) })
 
@@ -40,13 +30,16 @@ class ModuleLoader {
     }
     try {
       val ast = parse(lex(Source.fromFile(file).mkString))
-      val m = new Module(name, if (ast.imports.exists(_.name == "std")) {
+      val m1 = new Module(name, if (ast.imports.exists(_.name == "std")) {
         ast
       } else {
         Program(Import("std") +: ast.imports, ast.definitions)
-      })
-      modules(name) = m
-      m
+      }, SymbolTable.empty, SymbolTable.empty)
+      val m2 = phases.foldLeft(m1) {
+        case (module, phase) => phase(module)
+      }
+      modules(name) = m2
+      m2
     } catch {
       case e: Error =>
         if (e.file == null) {
