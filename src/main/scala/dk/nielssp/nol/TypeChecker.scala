@@ -8,11 +8,9 @@ import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class TypeChecker(moduleLoader: ModuleLoader) {
+class TypeChecker extends (Module => Module) {
 
   private var supply = 0
-
-  val modules = mutable.HashMap.empty[String, SymbolTable]
 
   def newTypeVar(prefix: String = "t"): TypeVar = {
     supply += 1
@@ -20,30 +18,13 @@ class TypeChecker(moduleLoader: ModuleLoader) {
   }
 
   def apply(module: Module): Module = {
-    val (internal, external) = apply(module.program)
-    module.withInternal(internal).withExternal(external)
-  }
-
-  def apply(program: Program, env: SymbolTable = SymbolTable.empty): (SymbolTable, SymbolTable) = {
-    val imports = program.imports.foldLeft(env) {
-      case (env, imp@Import(name)) =>
-        try {
-          val module = moduleLoader(name)
-          env.union(modules.getOrElseUpdate(name, {
-            apply(module.program)._2
-          }))
-        } catch {
-          case e: ImportError =>
-            e.pos = imp.pos
-            throw e
-        }
-    }
-    val env2 = apply(program.definitions, imports)
-    val definitions2 = program.definitions ++ program.definitions.flatMap {
+    val internal = apply(module.program.definitions, module.internal)
+    val definitions = module.program.definitions ++ module.program.definitions.flatMap {
       case TypeClassDefinition(_, _, _, members) => members
       case _ => Seq.empty
     }
-    (env2, env.withTypes(definitions2.flatMap(d => env2.getType(d.name).map(d.name -> _)).toMap))
+    val external = module.external.withTypes(definitions.flatMap(d => internal.getType(d.name).map(d.name -> _)).toMap)
+    module.withInternal(internal).withExternal(external)
   }
 
   def tryUnify(t1: Monotype, t2: Monotype, node: AstNode): Map[String, Monotype] =

@@ -75,12 +75,11 @@ object nolc {
       try {
         loader.modules("std") = std
         loader.includePath += "."
-        val interpreter = new Interpreter(loader)
-        val typeChecker = new TypeChecker(loader)
-        typeChecker.modules("std") = std.external
+        val typeChecker = new TypeChecker
+        val interpreter = new Interpreter
         generator.modules("std") = stdlib
         val module = loader.load(args.head)
-        typeChecker(module.program)
+        typeChecker(module)
         out.write(generator.preamble(stdlib))
         out.write(generator(module.program)._1)
       } catch {

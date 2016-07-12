@@ -7,8 +7,13 @@ typeclass Applicative f {
 }
 
 typeclass Monad m extends Applicative m {
-  let return : forall a. a -> f a
+  let return : forall a. a -> m a
   let >>= : forall a, b. m a -> (a -> m b) -> m b
+}
+
+instance Monad List {
+  let return = \x -> [x]
+  let >>= = \xs f -> concat $ map f xs
 }
 
 //let listMonad =

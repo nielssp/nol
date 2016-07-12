@@ -24,4 +24,8 @@ case class SymbolTable(values: Map[String, Value],
 
 object SymbolTable {
   val empty = SymbolTable(Map.empty, Map.empty, Map.empty)
+
+  def values(values: Map[String, Value]): SymbolTable = SymbolTable(values, Map.empty, Map.empty)
+  def types(types: Map[String, Type]): SymbolTable = SymbolTable(Map.empty, types, Map.empty)
+  def instances(instances: Map[Constraint, Map[String, Value]]): SymbolTable = SymbolTable(Map.empty, Map.empty, instances)
 }

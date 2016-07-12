@@ -15,12 +15,34 @@ class Module(val name: String, val program: Program, val internal: SymbolTable, 
   def withExternal(external: SymbolTable): Module = new Module(name, program, internal, external)
 }
 
+class Importer(moduleLoader: ModuleLoader) extends (Module => Module) {
+  def apply(module: Module): Module = {
+    val internal = module.program.imports.foldLeft(module.internal) {
+      case (env, imp@Import(name)) =>
+        try {
+          env.union(moduleLoader(name).external)
+        } catch {
+          case e: ImportError =>
+            e.pos = imp.pos
+            throw e
+        }
+    }
+    module.withInternal(internal)
+  }
+}
+
 class ModuleLoader {
   val includePath = ListBuffer.empty[String]
 
   val modules = mutable.HashMap.empty[String, Module]
 
-  val phases = ListBuffer.empty[Module => Module]
+  val phases = ListBuffer[Module => Module](new Importer(this))
+
+  def compile(module: Module): Module = phases.foldLeft(module) {
+    case (module, phase) =>
+      println(s"${module.name}: Running phase: ${phase.getClass.getSimpleName}")
+      phase(module)
+  }
 
   def apply(name: String): Module = modules.getOrElse(name, { load(name) })
 
@@ -35,9 +57,7 @@ class ModuleLoader {
       } else {
         Program(Import("std") +: ast.imports, ast.definitions)
       }, SymbolTable.empty, SymbolTable.empty)
-      val m2 = phases.foldLeft(m1) {
-        case (module, phase) => phase(module)
-      }
+      val m2 = compile(m1)
       modules(name) = m2
       m2
     } catch {
