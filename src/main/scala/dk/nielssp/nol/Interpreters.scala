@@ -29,10 +29,10 @@ trait Interpreters {
       case _ => throw new TypeError("expected bool", cond.pos)
     }
     case InfixExpr(op, left, right) => apply(op, env) match {
-      case LambdaValue(f) => f(apply(left, env)) match {
-        case LambdaValue(g) =>
+      case f: Callable => f.call(apply(left, env)) match {
+        case g: Callable =>
           try {
-            g(apply(right, env))
+            g.call(apply(right, env))
           } catch {
             case e: DomainError if e.pos == NoPosition =>
               e.pos = op.pos
@@ -43,9 +43,9 @@ trait Interpreters {
       case _ => throw new TypeError("expected function", op.pos)
     }
     case PrefixExpr(op, arg) => apply(op, env) match {
-      case LambdaValue(f) =>
+      case f: Callable =>
         try {
-          f(apply(arg, env))
+          f.call(apply(arg, env))
         } catch {
           case e: DomainError if e.pos == NoPosition =>
             e.pos = op.pos

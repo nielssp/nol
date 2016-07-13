@@ -32,7 +32,7 @@ object noli {
           System.exit(0)
         } else if (line.startsWith(":i")) {
           val name = line.drop(2).trim
-          env = env.union(loader(name).external)
+          env = env.union(loader.load(name).external)
         } else if (line.startsWith(":t")) {
           val tokens = lex(line.drop(2))
           val ast = parse.repl(tokens)

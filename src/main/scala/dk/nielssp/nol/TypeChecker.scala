@@ -8,14 +8,8 @@ import scala.collection.mutable
 import scala.io.Source
 import scala.util.parsing.input.NoPosition
 
-class TypeChecker extends (Module => Module) {
+class TypeChecker extends (Module => Module) with TypeCheckers {
 
-  private var supply = 0
-
-  def newTypeVar(prefix: String = "t"): TypeVar = {
-    supply += 1
-    TypeVar(prefix + supply)
-  }
 
   def apply(module: Module): Module = {
     val internal = apply(module.program.definitions, module.internal)
@@ -26,15 +20,6 @@ class TypeChecker extends (Module => Module) {
     val external = module.external.withTypes(definitions.flatMap(d => internal.getType(d.name).map(d.name -> _)).toMap)
     module.withInternal(internal).withExternal(external)
   }
-
-  def tryUnify(t1: Monotype, t2: Monotype, node: AstNode): Map[String, Monotype] =
-    try {
-      t1.unify(t2)
-    } catch {
-      case e: TypeError =>
-        e.pos = node.pos
-        throw e
-    }
 
   def apply(definitions: Seq[Definition], env: SymbolTable): SymbolTable =
     if (definitions.isEmpty) {

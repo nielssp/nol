@@ -118,6 +118,7 @@ object std extends Module("std", Program(Seq.empty, Seq.empty), SymbolTable.empt
       "true" -> Monotype.Bool,
       "false" -> Monotype.Bool
     ),
+    Map(),
     Map()
   )
 }

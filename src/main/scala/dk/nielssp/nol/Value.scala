@@ -2,7 +2,21 @@ package dk.nielssp.nol
 
 import scala.util.parsing.input.NoPosition
 
-sealed abstract class Value
+trait Callable {
+  def call(arg: Value): Value
+}
+
+sealed abstract class Value extends Types {
+  override def ftv = Set.empty
+  override def apply(s: Map[String, Monotype]): Value = this
+  def call(args: Seq[Value]): Value = args.foldLeft(this) {
+    case (f, arg) =>
+      f match {
+        case g: Value with Callable => g.call(arg)
+        case _ => throw new TypeError("expected a function", NoPosition)
+      }
+  }
+}
 case class IntValue(value: Int) extends Value {
   override def toString = value.toString
 }
@@ -24,15 +38,28 @@ case class TupleValue(elements: List[Value]) extends Value {
 case class RecordValue(fields: Map[String, Value]) extends Value {
   override def toString = s"{${fields.map{ case (f, v) => s"$f = $v" }.mkString(", ")}}"
 }
-case class LambdaValue(f: Value => Value) extends Value {
+case class LambdaValue(f: Value => Value) extends Value with Callable {
   override def toString = "#function"
+  override def call(arg: Value): Value = f(arg)
+}
+case class TypeClass(name: String = "", parameters: Int = 1) extends Value with Callable {
+  override def toString = name
+
+  override def call(arg: Value): Value = {
+    def convert(n: Int, parameters: List[Value]): Value =
+      if (n < 1) Constraint(this, parameters.reverse: _*)
+      else LambdaValue {
+        case parameter => convert(n - 1, parameter :: parameters)
+      }
+    convert(parameters - 1, List(arg))
+  }
 }
 case class LazyValue(value: () => Value) extends Value {
   override def toString = value().toString
 }
 
-sealed abstract class Type extends Value with Types {
-  def apply(s: Map[String, Monotype]): Type
+sealed abstract class Type extends Value {
+  override def apply(s: Map[String, Monotype]): Type = this
 
   def instantiate(newVar: String => TypeVar): (Set[Constraint], Monotype)
 
@@ -79,9 +106,9 @@ case class TypeScheme(names: Set[String], context: Set[Constraint], t: Monotype)
 sealed class Monotype(name: String = "") extends Type {
   override def toString = if (name.nonEmpty) name else super.toString
 
-  def ftv = Set.empty[String]
+  override def ftv = Set.empty[String]
 
-  def apply(sub: Map[String, Monotype]): Monotype = this
+  override def apply(sub: Map[String, Monotype]): Monotype = this
   def unify(other: Monotype): Map[String, Monotype] = other match {
     case _ if other == this => Map.empty
     case TypeVar(name) => bind(name)
@@ -94,7 +121,7 @@ sealed class Monotype(name: String = "") extends Type {
   def instantiate(newVar: String => TypeVar): (Set[Constraint], Monotype) = (Set.empty, this)
 }
 
-case class Constraint(typeClass: TypeClass, parameters: Monotype*) extends Value with Types {
+case class Constraint(typeClass: TypeClass, parameters: Value*) extends Value with Types {
   override def toString = s"$typeClass ${parameters.mkString(" ")}"
 
   override val ftv = parameters.flatMap(_.ftv).toSet
