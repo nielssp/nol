@@ -24,9 +24,9 @@ object parse extends Parsers {
     case imports ~ definitions => Program(imports, definitions)
   }
 
-  def definition: Parser[Definition] = positioned(assignment | declaration | typeClassDefinition | instanceDefinition)
+  def definition: Parser[Definition] = positioned(assignment | typeClassDefinition | instanceDefinition)
 
-  def assignment: Parser[Assignment] = keyword("let") ~> assign
+  def assignment: Parser[Definition] = keyword("let") ~> assign
 
   def declaration: Parser[Declaration] = keyword("let") ~> (monadicName | dyadicName) ~ (punctuation(":") ~> typeScheme) ^^ {
     case name ~ t => Declaration(name.name, t)
@@ -43,7 +43,7 @@ object parse extends Parsers {
   def instanceDefinition: Parser[InstanceDefinition] =
     keyword("instance") ~> opt(keyword("forall") ~> rep1sep(monadicName, punctuation(",")) <~ operator(".")) ~
       constraints ~ constraint ~
-      opt(punctuation("{") ~> rep(assignment) <~ punctuation("}")) ^^ {
+      opt(punctuation("{") ~> rep(keyword("let") ~> (assignValue | assignType)) <~ punctuation("}")) ^^ {
       case names ~ context ~ instance ~ members =>
         InstanceDefinition(names.getOrElse(List.empty).map(_.name).toSet, context, instance, members.getOrElse(List.empty))
     }
@@ -113,11 +113,22 @@ object parse extends Parsers {
     case assigns ~ body => LetExpr(assigns, body)
   }
 
-  def assign: Parser[Assignment] =
-    ((monadicName | dyadicName) ~ (punctuation("=") ~> expr) |
-      keyword("type") ~> (monadicName | dyadicName) ~ (punctuation("=") ~> typeScheme)) ^^ {
-    case name ~ value => Assignment(name.name, value)
-  }
+  def assign: Parser[Definition] = assignType | assignValue | assignDeclare
+
+  def assignValue: Parser[Assignment] =
+    (monadicName | dyadicName) ~ (punctuation("=") ~> expr) ^^ {
+      case name ~ value => Assignment(name.name, value)
+    }
+
+  def assignDeclare: Parser[Declaration] =
+    (monadicName | dyadicName) ~ (punctuation(":") ~> typeScheme) ^^ {
+      case name ~ t => Declaration(name.name, t)
+    }
+
+  def assignType: Parser[Assignment] =
+    keyword("type") ~> (monadicName | dyadicName) ~ (punctuation("=") ~> typeScheme) ^^ {
+      case name ~ value => Assignment(name.name, value)
+    }
 
   def ifExpr: Parser[Expr] = keyword("if") ~> expr ~ (keyword("then") ~> expr) ~ (keyword("else") ~> expr) ^^ {
     case cond ~ ifTrue ~ ifFalse => IfExpr(cond, ifTrue, ifFalse)

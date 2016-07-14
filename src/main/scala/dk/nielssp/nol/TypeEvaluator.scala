@@ -16,11 +16,11 @@ class TypeEvaluator extends (Module => Module) with Interpreters {
       case (scope, _) => scope
     }
     internal = internal.union(external)
-    val program = Program(module.program.imports, apply(module.program.definitions, internal))
+    val program = Program(module.program.imports, convert(module.program.definitions, internal))
     module.withProgram(program).withInternal(internal).withExternal(external)
   }
 
-  def apply(definitions: Seq[Definition], env: SymbolTable): Seq[TypedDefinition] =
+  def convert(definitions: Seq[Definition], env: SymbolTable): Seq[TypedDefinition] =
     definitions.groupBy(_.name).flatMap {
       case ("", group) =>
         group.map {

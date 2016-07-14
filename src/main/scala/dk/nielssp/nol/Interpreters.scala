@@ -7,15 +7,20 @@ import scala.util.parsing.input.NoPosition
 
 trait Interpreters {
 
+  def apply(definitions: Seq[Definition], env: SymbolTable): SymbolTable = {
+    var env2 = env
+    env2 = definitions.foldLeft(env2) {
+      case (scope, Assignment(name, value)) =>
+        scope.updated(name, LazyValue(() => apply(value, env2)))
+      case (scope, _) => scope
+    }
+    env2
+  }
+
+
   def apply(expr: Expr, env: SymbolTable): Value = (expr match {
     case LetExpr(assigns, body) =>
-      var newScope: SymbolTable = env
-      newScope = assigns.foldLeft(newScope){
-        case (scope, Assignment(name, value)) =>
-          scope.updated(name, LazyValue(() => apply(value, newScope)))
-        case (scope, _) => scope
-      }
-      apply(body, newScope)
+      apply(body, apply(assigns, env))
     case LambdaExpr(Nil, expr) =>
       apply(expr, env)
     case LambdaExpr(name :: names, expr) =>
