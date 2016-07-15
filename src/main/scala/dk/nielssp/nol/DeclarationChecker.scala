@@ -32,7 +32,7 @@ class DeclarationChecker extends (Module => Module) with TypeCheckers {
     val instances = module.program.definitions.flatMap {
       case d@TypedInstanceDefinition(names, context1, instance, members1) =>
         // TODO: bind parameter somehow
-        internal.getTypeClass(instance.typeClass.name) match {
+        internal.getTypeClass(instance.typeClass.name) match {o
           case Some(TypedTypeClassDefinition(typeClass, parameters, context2, members2)) =>
             val members3 = members2.map {
               case TypedDeclaration(name, t1) =>

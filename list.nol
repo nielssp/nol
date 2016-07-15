@@ -82,7 +82,11 @@ let zipWith = \f xs ys ->
     then []
     else f (head xs) (head ys) :: zipWith f (tail xs) (tail ys)
 
-let zip = zipWith $ \x y -> [x y]
+let zip = zipWith $ \x y -> (x, y)
+
+let indices = \xs -> 0 .. length xs
+
+let zipWithIndex = \xs -> zip xs $ indices xs
 
 let flatten = foldr (++) []
 
