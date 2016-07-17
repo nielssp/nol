@@ -47,7 +47,11 @@ case class TypeClass(name: String = "", parameters: Int = 1) extends Value with 
 
   override def call(arg: Value): Value = {
     def convert(n: Int, parameters: List[Value]): Value =
-      if (n < 1) Constraint(this, parameters.reverse: _*)
+      if (n < 1) Constraint(this, parameters.map {
+        case t: TypeScheme => ???
+        case t: Monotype => t
+        case _ => throw new TypeError("expected type", NoPosition)
+      }.reverse: _*)
       else LambdaValue {
         case parameter => convert(n - 1, parameter :: parameters)
       }
@@ -121,7 +125,7 @@ sealed class Monotype(name: String = "") extends Type {
   def instantiate(newVar: String => TypeVar): (Set[Constraint], Monotype) = (Set.empty, this)
 }
 
-case class Constraint(typeClass: TypeClass, parameters: Value*) extends Value with Types {
+case class Constraint(typeClass: TypeClass, parameters: Monotype*) extends Value with Types {
   override def toString = s"$typeClass ${parameters.mkString(" ")}"
 
   override val ftv = parameters.flatMap(_.ftv).toSet

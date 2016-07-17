@@ -34,13 +34,16 @@ class DeclarationChecker extends (Module => Module) with TypeCheckers {
         // TODO: bind parameter somehow
         internal.getTypeClass(instance.typeClass.name) match {
           case Some(TypedTypeClassDefinition(typeClass, parameters, context2, members2)) =>
+            if (instance.parameters.length != parameters.length)
+              throw new TypeError(s"incorrect number of parameters in implementation of '${typeClass.name}'", d.pos)
+            val s0 = parameters.zip(instance.parameters).toMap
             val members3 = members2.map {
               case TypedDeclaration(name, t1) =>
                 members1.find(_.name == name) match {
                   case Some(a@TypedAssignment(_, expr, t2)) =>
-                    val (context3, t3) = expr.typeAnnotation.get.instantiate(newTypeVar)
-                    val (context4, t4) = t2.instantiate(newTypeVar)
-                    val (context5, t5) = t1.instantiate(newTypeVar)
+                    val (context3, t3) = expr.typeAnnotation.get.apply(s0).instantiate(newTypeVar)
+                    val (context4, t4) = t2.apply(s0).instantiate(newTypeVar)
+                    val (context5, t5) = t1.apply(s0).instantiate(newTypeVar)
                     val s1 = tryUnify(t3, t4, expr)
                     val s2 = tryUnify(t3.apply(s1), t5, expr)
                     val s3 = Monotype.compose(s2, s1)
