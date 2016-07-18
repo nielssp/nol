@@ -50,7 +50,7 @@ case class TypeClass(name: String = "", parameters: Int = 1) extends Value with 
       if (n < 1) Constraint(this, parameters.map {
         case t: TypeScheme => ???
         case t: Monotype => t
-        case _ => throw new TypeError("expected type", NoPosition)
+        case _ => throw new DomainError("expected type", NoPosition)
       }.reverse: _*)
       else LambdaValue {
         case parameter => convert(n - 1, parameter :: parameters)
