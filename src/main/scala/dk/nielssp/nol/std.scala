@@ -27,9 +27,7 @@ object std extends Module("std", Program(Seq.empty, Seq.empty), SymbolTable.empt
       "Float" -> Monotype.Float,
       "String" -> Monotype.String,
       "Bool" -> Monotype.Bool,
-      "List" -> monadic{
-        case t: Monotype => Monotype.List(t)
-      },
+      "List" -> Monotype.List,
       "->" -> dyadic{
         case (a: Monotype, b: Monotype) => Monotype.Function(a, b)
       },

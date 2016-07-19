@@ -50,7 +50,7 @@ case class TypeClass(name: String = "", parameters: Int = 1) extends Value with 
       if (n < 1) Constraint(this, parameters.map {
         case t: TypeScheme => ???
         case t: Monotype => t
-        case _ => throw new DomainError("expected type", NoPosition)
+        case v => ValueType(v)
       }.reverse: _*)
       else LambdaValue {
         case parameter => convert(n - 1, parameter :: parameters)
@@ -175,6 +175,10 @@ case class RecordType(fields: Map[String, Monotype], more: Option[String]) exten
       }
     case _ => super.unify(other)
   }
+}
+
+case class ValueType(value: Value) extends Monotype {
+  override def toString = value.toString
 }
 
 case class AppliedType(function: Monotype, parameters: Monotype*) extends Monotype {
