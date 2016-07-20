@@ -179,6 +179,11 @@ case class RecordType(fields: Map[String, Monotype], more: Option[String]) exten
 
 case class ValueType(value: Value) extends Monotype {
   override def toString = value.toString
+
+  override def equals(o: scala.Any): Boolean = o match {
+    case ValueType(value2) => value == value2
+    case _ => false
+  }
 }
 
 case class AppliedType(function: Monotype, parameters: Monotype*) extends Monotype {
@@ -218,8 +223,10 @@ object Monotype {
   val Num = new TypeClass("Num")
   val Eq = new TypeClass("Eq")
 
-  private val listTag = new Monotype("[]")
-  def List(element: Monotype): Monotype = AppliedType(listTag, element)
+  val List: LambdaValue = std.monadic {
+    case element: Monotype => List(element)
+  }
+  def List(element: Monotype): Monotype = AppliedType(ValueType(List), element)
 
   private val tupleTag = new Monotype("()")
   def Tuple(elements: Monotype*): Monotype = AppliedType(tupleTag, elements: _*)
