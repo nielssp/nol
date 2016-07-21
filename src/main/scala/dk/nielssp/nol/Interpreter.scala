@@ -9,6 +9,11 @@ class Interpreter extends (Module => Module) with Interpreters {
     val external = module.program.definitions.foldLeft(module.external) {
       case (scope, Assignment(name, value)) =>
         scope.updated(name, LazyValue(() => apply(value, internal)))
+      case (scope, TypedTypeClassDefinition(_, _, _, members)) =>
+        scope.union(SymbolTable.values(members.map {
+          case TypedDeclaration(name, _) =>
+            name -> LazyValue(() => ???)
+        }.toMap))
       case (scope, _) => scope
     }
     internal = internal.union(external)
