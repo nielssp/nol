@@ -16,8 +16,10 @@ case class SymbolTable(values: Map[String, Value],
 
   def union(other: SymbolTable): SymbolTable =
     SymbolTable(values ++ other.values, types ++ other.types, typeClasses ++ other.typeClasses, instances ++ other.instances)
-  def generalize(context: Set[Constraint], t: Monotype): Type =
-    TypeScheme(context.flatMap(_.ftv) ++ t.ftv -- ftv, context, t)
+  def generalize(context: Set[Constraint], t: Monotype): Type = {
+    val names = t.ftv -- ftv
+    TypeScheme(names, context.filter(_.ftv.intersect(names).nonEmpty), t)
+  }
   def get(name: String) = values.get(name)
   def getType(name: String) = types.get(name)
   def getTypeClass(name: String) = typeClasses.get(name)
